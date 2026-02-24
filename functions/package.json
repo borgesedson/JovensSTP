@@ -1,0 +1,43 @@
+{
+  "main": "lib/index.js",
+  "scripts": {
+    "genkit:start": "genkit start -- tsx --watch src/genkit-sample.ts",
+    "lint": "eslint src/index.ts src/matching.ts",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "dev": "npm run build:watch & firebase emulators:start --only functions",
+    "test": "vitest run"
+  },
+  "name": "functions",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
+    "@types/markdown-it": "^14.1.2",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.2",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^5.0.0",
+    "markdown-it": "^14.1.1",
+    "nodemailer": "^8.0.1",
+    "stream-chat": "^8.40.0"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.10",
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.25.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.6.3",
+    "vitest": "^3.0.5"
+  },
+  "private": true
+}

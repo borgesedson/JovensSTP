@@ -1,0 +1,177 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Perfis de usuário podem ser lidos por usuários autenticados, mas só o dono pode escrever.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      // Permitir que o dono edite tudo
+      allow write: if request.auth != null && request.auth.uid == userId;
+      // Permitir que outros usuários atualizem apenas followers (quando alguém segue você)
+      // E você pode atualizar seu próprio following (quando você segue alguém)
+      // Também permite atualizar ambos juntos (para conexões bilaterais)
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers']) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['following']) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers', 'following'])
+      );
+    }
+
+    // Regras para Stories (posts/histórias)
+    match /stories/{storyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      // Permitir update do campo likes por qualquer usuário autenticado (curtir)
+      // Outros campos só podem ser alterados pelo autor
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.authorId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      
+      // Comentários em stories
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null && request.auth.uid == resource.data.authorId;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      }
+    }
+
+    // Regras para Posts (legacy)
+    match /posts/{postId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+
+      match /comments/{commentId} {
+        allow read, create: if request.auth != null;
+      }
+    }
+
+    // Regras para Vagas/Jobs
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      // Permitir update do campo applicants por qualquer usuário autenticado (candidatura)
+      // Outros campos só podem ser alterados pela empresa dona
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.companyId || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants'])
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.companyId;
+    }
+
+    // Regras para Notificações (suporta coleção e subcoleção "items")
+    match /notifications/{notifId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Subcoleção por usuário (path usado pela app): notifications/{userId}/items/{notifId}
+    match /notifications/{userId}/items/{notifId} {
+      // Dono pode ler/alterar tudo
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      // Qualquer usuário autenticado pode CRIAR uma notificação para outro usuário
+      // (ex.: pedidos de conexão, mensagens). Atualizações e deletes continuam restritos ao dono.
+      allow create: if request.auth != null;
+    }
+
+    // Notificações em subcoleção (legacy direta): notifications/{userId}/{notifId}
+    match /notifications/{userId}/{notifId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Comunidades
+    match /communities/{communityId} {
+      // Todos podem ler as comunidades
+      allow read: if true;
+      // Qualquer utilizador autenticado pode criar
+      allow create: if request.auth != null;
+      // Atualizações permitidas para:
+      // 1) Dono (createdBy) pode editar qualquer campo
+      // 2) Qualquer utilizador pode apenas atualizar o campo 'members' (entrar/sair)
+      // 3) Moderadores/owner podem editar campos de configuração básicos (name, imageUrl, description, requiresApproval)
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.createdBy ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["members"]) ||
+        (
+          (
+            get(/databases/$(database)/documents/communities/$(communityId)).data.roles[request.auth.uid] == 'owner' ||
+            get(/databases/$(database)/documents/communities/$(communityId)).data.roles[request.auth.uid] == 'mod'
+          ) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name","imageUrl","description","requiresApproval"])
+        )
+      );
+      // Apenas o dono pode apagar
+      allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
+    }
+
+    // Pedidos de entrada em comunidades
+    match /joinRequests/{requestId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId ||
+        // owner/mod podem ler pedidos da sua comunidade
+        get(/databases/$(database)/documents/communities/$(resource.data.communityId)).data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/communities/$(resource.data.communityId)).data.roles[request.auth.uid] in ['owner','mod']
+      );
+      // criar: apenas o próprio requerente
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // atualizar (aprovar/rejeitar): apenas owner/mod da comunidade
+      allow update: if request.auth != null && (
+        get(/databases/$(database)/documents/communities/$(resource.data.communityId)).data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/communities/$(resource.data.communityId)).data.roles[request.auth.uid] in ['owner','mod']
+      );
+      // delete: nenhum caso (evitar)
+    }
+
+    // Regras para User Stories (stories temporários de 24h)
+    match /userStories/{storyId} {
+      allow read: if request.auth != null;
+      // Certificar que apenas o autor pode criar/editar seus próprios stories
+      allow write: if request.auth != null && (
+        (request.method == 'create' && request.resource.data.userId == request.auth.uid) ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      );
+    }
+
+    // Regras para Pedidos de Conexão
+    match /connectionRequests/{requestId} {
+      // Qualquer utilizador autenticado pode ler pedidos onde está envolvido
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.from ||
+        request.auth.uid == resource.data.to
+      );
+      // Criar pedido apenas se for o remetente
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.from;
+      // Atualizar apenas se for o destinatário (aceitar/rejeitar)
+      allow update: if request.auth != null && request.auth.uid == resource.data.to;
+      // Apagar apenas se for o remetente (cancelar)
+      allow delete: if request.auth != null && request.auth.uid == resource.data.from;
+    }
+
+    // Regras para Audio Rooms (Lives) - Estilo Tandem
+    match /audioRooms/{roomId} {
+      // Todos podem ler lives ativas
+      allow read: if true;
+      // Qualquer usuário autenticado pode criar uma live
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.hostId;
+      // Atualizar: host pode fazer tudo, participantes podem atualizar apenas participants/speakerIds/listenerIds
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.hostId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'speakerIds', 'listenerIds'])
+      );
+      // Deletar: apenas o host pode encerrar a live
+      allow delete: if request.auth != null && request.auth.uid == resource.data.hostId;
+    }
+
+    // Academia (Conteúdo Educacional Inteligente)
+    match /academy_content/{contentId} {
+      allow read: if true; 
+      allow create, update: if request.auth != null; 
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+  }
+}
