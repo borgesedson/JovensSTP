@@ -7,6 +7,7 @@ import AppRoutes from './components/AppRoutes'
 import IncomingCallToast from './components/IncomingCallToast'
 import ChallengePopup from './components/ChallengePopup'
 import ErrorBoundary from './components/ErrorBoundary'
+import PWAInstallBanner from './components/PWAInstallBanner'
 import { VideoProvider, StreamVideoWrapper } from './contexts/VideoContext'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
                   <IncomingCallToast />
                 </StreamVideoWrapper>
                 <ChallengePopup />
+                <PWAInstallBanner />
                 <Toaster position="top-right" />
               </VideoProvider>
             </StreamProvider>
