@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useContext, useRef } from 'react'
 import { db } from '../services/firebase'
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { JobCard } from '../components/JobCard'
@@ -45,39 +45,41 @@ export const JobsPage = () => {
     setShowCreateForm(false)
   }
 
-  // Filter jobs based on search and tab
-  const filteredJobs = jobs.filter(job => {
-    // Mostrar vagas pausadas/arquivadas nas abas "Minhas" tanto para empresa quanto para jovem (ver aplicações antigas)
-    const isCompanyMine = userType === 'company' && activeTab === 'mine'
-    const isYoungMine = userType === 'young' && activeTab === 'mine'
-    if ((job.status === 'archived' || job.status === 'paused') && !(isCompanyMine || isYoungMine)) {
-      return false
-    }
+  // Filter jobs based on search and tab (Otimizado com useMemo)
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(job => {
+      // Mostrar vagas pausadas/arquivadas nas abas "Minhas" tanto para empresa quanto para jovem (ver aplicações antigas)
+      const isCompanyMine = userType === 'company' && activeTab === 'mine'
+      const isYoungMine = userType === 'young' && activeTab === 'mine'
+      if ((job.status === 'archived' || job.status === 'paused') && !(isCompanyMine || isYoungMine)) {
+        return false
+      }
 
-    // Type filter (estágio, tempo-integral, remoto)
-    if (activeFilter !== 'todas' && job.type !== activeFilter) {
-      return false
-    }
+      // Type filter (estágio, tempo-integral, remoto)
+      if (activeFilter !== 'todas' && job.type !== activeFilter) {
+        return false
+      }
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      const matchesSearch = 
-        job.title?.toLowerCase().includes(query) ||
-        job.companyName?.toLowerCase().includes(query) ||
-        job.description?.toLowerCase().includes(query) ||
-        job.location?.toLowerCase().includes(query)
-      if (!matchesSearch) return false
-    }
+      // Search filter
+      if (searchQuery) {
+        const queryStr = searchQuery.toLowerCase()
+        const matchesSearch = 
+          job.title?.toLowerCase().includes(queryStr) ||
+          job.companyName?.toLowerCase().includes(queryStr) ||
+          job.description?.toLowerCase().includes(queryStr) ||
+          job.location?.toLowerCase().includes(queryStr)
+        if (!matchesSearch) return false
+      }
 
-    // Tab filter
-    if (activeTab === 'mine') {
-      if (userType === 'young') return job.applicants?.includes(user?.uid)
-      if (userType === 'company') return job.companyId === user?.uid
-    }
+      // Tab filter
+      if (activeTab === 'mine') {
+        if (userType === 'young') return job.applicants?.includes(user?.uid)
+        if (userType === 'company') return job.companyId === user?.uid
+      }
 
-    return true
-  })
+      return true
+    })
+  }, [jobs, searchQuery, activeFilter, activeTab, userType, user?.uid])
 
   return (
     <div className="bg-gray-50 min-h-screen pt-14">

@@ -1,17 +1,40 @@
-import { Search, Bell } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Search, Bell, Video, BookOpen } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useVideo } from '../contexts/VideoContext'
 import { db } from '../services/firebase'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { SearchModal } from './SearchModal'
 import { NotificationsModal } from './NotificationsModal'
+import { toast } from 'react-hot-toast'
 
 export const Header = () => {
   const { user } = useAuth()
+  const { createMeeting } = useVideo()
+  const navigate = useNavigate()
   const [showSearch, setShowSearch] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [isCreatingMeeting, setIsCreatingMeeting] = useState(false)
+
+  const handleCreateMeeting = async () => {
+    if (isCreatingMeeting) return
+    setIsCreatingMeeting(true)
+    const toastId = toast.loading('Criando sala de reunião...')
+    try {
+      const callId = await createMeeting(`Reunião de ${user.displayName || 'Utilizador'}`)
+      if (callId) {
+        toast.success('Sala criada!', { id: toastId })
+        navigate(`/meet/${callId}`)
+      }
+    } catch (error) {
+      console.error('Erro ao criar reunião do header:', error)
+      toast.error('Gola ao criar reunião.', { id: toastId })
+    } finally {
+      setIsCreatingMeeting(false)
+    }
+  }
 
   // Contar notificações não lidas + pedidos de conexão pendentes
   useEffect(() => {
@@ -58,6 +81,25 @@ export const Header = () => {
           
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {user && (
+              <>
+                <Link
+                  to="/blog"
+                  className="p-2 hover:bg-green-50 rounded-full transition text-green-600 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
+                  title="Blog JovensSTP"
+                >
+                  <BookOpen size={22} />
+                </Link>
+                <button 
+                onClick={handleCreateMeeting}
+                disabled={isCreatingMeeting}
+                className="p-2 hover:bg-green-50 rounded-full transition text-green-600 disabled:opacity-50"
+                title="Nova Reunião (Meet)"
+              >
+                <Video size={22} />
+                </button>
+              </>
+            )}
             <button 
               onClick={() => setShowSearch(true)}
               className="p-2 hover:bg-gray-100 rounded-full transition"

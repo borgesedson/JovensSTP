@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mockup Blog JovensSTP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; gap: 40px; padding: 40px 20px; flex-wrap: wrap; }
+        .mockup-container { width: 375px; height: 812px; background: white; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 8px solid #1f2937; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+        .glass-dark { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body>
+
+<!-- MOCKUP 1: TELA INICIAL -->
+<div class="flex flex-col items-center">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">1. Ecrã "Início" (Ícone no Topo)</h2>
+    <div class="mockup-container">
+        <!-- Header Home -->
+        <div class="px-4 py-4 mt-6 bg-white flex justify-between items-center z-10 sticky top-0 border-b border-gray-100">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">J</div>
+                <h1 class="text-xl font-bold text-gray-900">JovensSTP</h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="relative cursor-pointer flex flex-col items-center group">
+                    <div class="bg-green-50 w-9 h-9 rounded-full flex items-center justify-center text-green-600 border border-green-200">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                </div>
+                <div class="text-gray-500 hover:text-gray-900">
+                    <i class="far fa-bell text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 p-4 bg-gray-50">
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-md mb-4 flex justify-between items-center cursor-pointer">
+                <div>
+                    <h3 class="font-bold text-lg leading-tight">Novo no Blog ✨</h3>
+                    <p class="text-xs text-green-100">Lê o artigo sobre "História de STP"</p>
+                </div>
+                <i class="fas fa-chevron-right text-green-200"></i>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
+                <p class="text-gray-800 text-sm">Alguém conhece boas oportunidades para programação?</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 2: TELA DO BLOG -->
+<div class="flex flex-col items-center">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">2. Ecrã "Blog"</h2>
+    <div class="mockup-container">
+        <div class="px-4 py-4 mt-6 bg-white border-b border-gray-100 flex justify-between items-center z-10 glass sticky top-0">
+            <div class="flex items-center gap-3">
+                <button class="text-gray-600 hover:text-gray-900"><i class="fas fa-arrow-left"></i></button>
+                <h1 class="text-xl font-bold text-gray-900">Blog</h1>
+            </div>
+            <button class="bg-green-600 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-sm flex items-center gap-2">
+                <i class="fas fa-pen text-xs"></i> Escrever
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto hide-scrollbar pb-24">
+            <div class="px-4 mb-4 mt-2">
+                <div class="relative rounded-2xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer">
+                    <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" class="w-full h-52 object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+                    <div class="absolute top-3 left-3 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">TECNOLOGIAS</div>
+                    <div class="absolute bottom-0 left-0 p-4 w-full">
+                        <h2 class="text-white font-bold text-lg leading-tight mb-2">Como a Tecnologia Está a Transformar S. Tomé</h2>
+                        <div class="flex items-center justify-between text-xs text-gray-300">
+                            <span class="font-medium text-white">João Silva</span>
+                            <span><i class="far fa-clock"></i> 5 min</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 3: MODAL DE REGRAS CRIATIVO -->
+<div class="flex flex-col items-center">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">3. A Regra de Ouro (Antes de Escrever)</h2>
+    <div class="mockup-container">
+        
+        <!-- Fundo desfocado fingindo que clicou em "Escrever" no blog -->
+        <div class="absolute inset-0 overflow-hidden z-0">
+             <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover opacity-20">
+        </div>
+        
+        <!-- Fundo escuro com blur -->
+        <div class="absolute inset-0 glass-dark z-10 flex items-end sm:items-center justify-center">
+            
+            <!-- Modal Card Estilo Apple/Premium -->
+            <div class="bg-white/95 backdrop-blur-xl w-full mx-4 sm:mx-6 rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl relative animate-[slideUp_0.3s_ease-out]">
+                
+                <!-- Ícone inspirador -->
+                <div class="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner">
+                    <span class="text-3xl text-green-600">💡</span>
+                </div>
+
+                <!-- Copywriting Criativo e Encorajador -->
+                <h3 class="text-2xl font-black text-center text-gray-900 mb-2 leading-tight">Partilha o teu Legado</h3>
+                
+                <p class="text-center text-sm text-gray-600 mb-6 px-2">
+                    O Blog JovensSTP existe para inspirar mentes e alargar horizontes.
+                </p>
+
+                <div class="bg-gray-50/50 rounded-2xl p-4 border border-gray-100 mb-6">
+                    <p class="text-sm text-gray-700 leading-relaxed font-medium">
+                        <b class="text-green-600">A nossa única Regra de Ouro:</b> O teu artigo tem de focar no <span class="bg-yellow-100 px-1 rounded">aprendizado de outras pessoas</span>. 
+                        A nossa juventude quer absorver as tuas ideias. 
+                    </p>
+                    <p class="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-100">
+                        Conteúdos que não agreguem valor educacional ou qualquer linguagem imprópria serão instantaneamente removidos para proteger a comunidade.
+                    </p>
+                </div>
+
+                <!-- Checkbox Promessa -->
+                <label class="flex items-start gap-3 cursor-pointer group mb-6">
+                    <div class="relative flex items-center justify-center mt-1">
+                        <input type="checkbox" class="peer appearance-none w-5 h-5 border-2 border-gray-300 rounded focus:ring-2 focus:ring-green-500 checked:bg-green-600 checked:border-green-600 transition-colors cursor-pointer" />
+                        <i class="fas fa-check absolute text-white text-xs opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
+                    </div>
+                    <span class="text-sm text-gray-800 font-medium group-hover:text-green-700 transition">
+                        Eu prometo que irei partilhar conhecimento que faz os jovens crescerem.
+                    </span>
+                </label>
+
+                <!-- Botões -->
+                <div class="space-y-3">
+                    <button class="w-full bg-green-600 text-white font-bold py-3.5 rounded-xl text-sm shadow-md shadow-green-600/20 hover:bg-green-700 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-feather-alt"></i> Entrar e Escrever
+                    </button>
+                    <button class="w-full bg-transparent text-gray-500 font-medium py-2 rounded-xl text-sm hover:text-gray-800 transition">
+                        Hoje não, volto depois
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 4: LER ARTIGO (Blog Detail) -->
+<div class="flex flex-col items-center mt-10">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">4. Ecrã "Ler Artigo" (Visão Pública)</h2>
+    <div class="mockup-container">
+        
+        <!-- Header Clean -->
+        <div class="absolute top-0 w-full px-4 py-4 mt-6 flex justify-between items-center z-20">
+            <button class="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md text-white flex items-center justify-center hover:bg-white/50 transition shadow-sm"><i class="fas fa-arrow-left"></i></button>
+            <div class="flex gap-2">
+                <!-- Translation Button -->
+                <button class="px-3 h-10 rounded-full bg-white/30 backdrop-blur-md text-white flex items-center justify-center hover:bg-white/50 transition shadow-sm font-bold text-sm border border-white/20">
+                    <i class="fas fa-language mr-1"></i> PT
+                </button>
+                <!-- Share Button -->
+                <button class="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md text-white flex items-center justify-center hover:bg-white/50 transition shadow-sm"><i class="fas fa-share-nodes"></i></button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto hide-scrollbar pb-24">
+            <!-- Hero Image -->
+            <div class="relative w-full h-72">
+                <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="bg-white px-5 pt-2 relative z-10 -mt-10 rounded-t-3xl">
+                <!-- Badge -->
+                <div class="inline-block bg-green-100 text-green-700 text-[10px] font-bold px-2.5 py-1 rounded-full mb-3 uppercase tracking-wider">
+                    Tecnologias
+                </div>
+                
+                <!-- Title -->
+                <h1 class="text-2xl font-extrabold text-gray-900 leading-tight mb-4">
+                    Como a Tecnologia Está a Transformar São Tomé e Príncipe
+                </h1>
+
+                <!-- Author Row -->
+                <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-5">
+                    <div class="flex items-center gap-3">
+                        <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80" class="w-10 h-10 rounded-full object-cover">
+                        <div>
+                            <p class="font-bold text-sm text-gray-900">João Silva</p>
+                            <p class="text-[11px] text-gray-500">20 Abril 2026 • Eng. de Software</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats summary -->
+                <div class="flex items-center gap-4 text-xs font-medium text-gray-500 mb-6 bg-gray-50 py-2 px-3 rounded-lg border border-gray-100">
+                    <div class="flex items-center gap-1.5"><i class="far fa-clock text-green-600"></i> 5 min leitura</div>
+                    <div class="text-gray-300">|</div>
+                    <div class="flex items-center gap-1.5"><i class="fas fa-align-left text-green-600"></i> 1,245 palavras</div>
+                </div>
+
+                <!-- Article Body -->
+                <div class="prose prose-sm prose-green max-w-none text-gray-800 leading-relaxed space-y-4">
+                    <p class="text-lg text-gray-600 italic font-medium">Nos últimos anos, assistimos a um crescimento silencioso mas poderoso do ecossistema digital no nosso país.</p>
+                    
+                    <p>Muitos jovens estão a usar ferramentas online gratuitas para aprender programação, design e marketing. Isto significa que, sem sair das ilhas, conseguem prestar serviços para o mundo inteiro.</p>
+
+                    <h3 class="text-lg font-bold text-gray-900 mt-6 mb-2">O Papel da Conectividade</h3>
+                    
+                    <p>Apesar dos desafios de infraestrutura com a internet, o uso de cabos submarinos e a chegada de novas redes tem democratizado o acesso à informação.</p>
+                    
+                    <img src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" class="w-full rounded-xl my-4">
+                    
+                    <p>O futuro é promissor para quem está disposto a estudar todos os dias. Plataformas como a JovensSTP são cruciais para fazer esta ponte de networking.</p>
+                </div>
+
+                <!-- CTA para Visitantes Publicos -->
+                <div class="mt-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-center text-white shadow-lg relative overflow-hidden">
+                    <!-- Decor -->
+                    <div class="absolute -top-10 -right-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+                    
+                    <h3 class="font-bold text-lg mb-2">Gostaste deste aprendizado? 💡</h3>
+                    <p class="text-sm text-green-50 mb-5 leading-snug">Junta-te à maior comunidade de jovens de STP para interagir com o autor e muito mais.</p>
+                    
+                    <button class="bg-white text-green-700 w-full py-3 rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] transition-transform">
+                        Criar Conta Grátis
+                    </button>
+                    <button class="mt-3 text-xs text-green-100 uppercase tracking-wider font-semibold hover:underline">
+                        Já tenho conta
+                    </button>
+                </div>
+                
+                <div class="h-20"></div> <!-- spacing -->
+            </div>
+        </div>
+
+        <!-- Sticky Interaction Bar -->
+        <div class="absolute bottom-0 w-full bg-white/80 backdrop-blur-md border-t border-gray-200 flex justify-between items-center h-[70px] pb-5 pt-2 px-6 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-20">
+            <div class="flex gap-6">
+                <!-- Claps (Medium style) -->
+                <button class="flex items-center gap-2 group">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-amber-50 group-hover:text-amber-500 transition">
+                        <i class="fas fa-sign-language text-xl"></i>
+                    </div>
+                    <span class="font-bold text-sm text-gray-600 group-hover:text-amber-500 transition">124</span>
+                </button>
+                
+                <!-- Comment -->
+                <button class="flex items-center gap-2 group">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-blue-50 group-hover:text-blue-500 transition">
+                        <i class="far fa-comment text-xl"></i>
+                    </div>
+                    <span class="font-bold text-sm text-gray-600 group-hover:text-blue-500 transition">8</span>
+                </button>
+            </div>
+            
+            <!-- Bookmark (Save for Later) -->
+            <button class="flex items-center gap-2 group">
+                <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-green-50 group-hover:text-green-600 transition">
+                    <i class="far fa-bookmark text-xl"></i>
+                </div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 5: EDITOR INTELIGENTE (Whisper AI) -->
+<div class="flex flex-col items-center mt-10">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">5. Editor de Artigo com Ditado de Voz (Whisper)</h2>
+    <div class="mockup-container">
+        <!-- Header -->
+        <div class="px-4 py-4 mt-6 bg-white border-b border-gray-100 flex justify-between items-center z-10 glass sticky top-0">
+            <button class="text-gray-600 hover:text-gray-900"><i class="fas fa-times"></i></button>
+            <h1 class="text-lg font-bold text-gray-900">Novo Artigo</h1>
+            <button class="text-green-600 font-bold text-sm">Publicar</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto hide-scrollbar p-6 bg-white pb-24 relative">
+            <input type="text" placeholder="Título da Tua História..." class="w-full text-3xl font-extrabold text-gray-900 placeholder-gray-300 border-none outline-none mb-4">
+            
+            <p class="text-gray-400 text-lg">A economia dita que as oportunidades são criadas por quem resolve problemas...</p>
+
+            <!-- Botão Gigante Flutuante do Microfone -->
+            <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
+                <div class="relative w-16 h-16 flex items-center justify-center">
+                    <div class="animate-ping absolute inset-0 bg-blue-400 rounded-full opacity-30"></div>
+                    <button class="w-16 h-16 bg-blue-500 rounded-full shadow-lg shadow-blue-500/40 text-white text-2xl flex items-center justify-center z-10">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
+                <span class="text-blue-500 text-xs font-bold mt-3 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest">A ESCUTAR...</span>
+                <span class="text-gray-400 text-[10px] mt-1 text-center">Fale naturalmente,<br>a inteligência artificial (Whisper) escreve.</span>
+            </div>
+        </div>
+
+        <!-- Sticky Toolbar inferior (Estilo Medium) -->
+        <div class="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-between items-center h-[60px] pb-5 pt-3 px-4 z-20">
+            <div class="flex gap-4 text-gray-500">
+                <i class="fas fa-image text-lg"></i>
+                <i class="fas fa-bold text-lg"></i>
+                <i class="fas fa-list-ul text-lg"></i>
+                <i class="fas fa-link text-lg"></i>
+            </div>
+            
+            <div class="text-[10px] text-gray-400">
+                43 palavras
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 6: EDITOR INTELIGENTE (Whisper AI) - APÓS FALAR -->
+<div class="flex flex-col items-center mt-10">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">6. Editor (Após Transcrição de Voz)</h2>
+    <div class="mockup-container">
+        <!-- Header -->
+        <div class="px-4 py-4 mt-6 bg-white border-b border-gray-100 flex justify-between items-center z-10 glass sticky top-0">
+            <button class="text-gray-600 hover:text-gray-900"><i class="fas fa-arrow-left"></i></button>
+            <h1 class="text-lg font-bold text-gray-900">Novo Artigo</h1>
+            <button class="text-green-600 font-bold text-sm">Publicar</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto hide-scrollbar p-6 bg-white pb-24 relative">
+            <input type="text" placeholder="Título da Tua História..." class="w-full text-2xl sm:text-3xl font-extrabold text-gray-900 placeholder-gray-300 border-none outline-none mb-4" value="A Economia Criativa">
+            
+            <div class="prose prose-sm prose-green max-w-none text-gray-800 leading-relaxed space-y-4">
+                <p>A Nossa Juventude precisa de agarrar as oportunidades digitais. Hoje em dia não basta apenas ter um curso, é preciso saber vender o nosso conhecimento para o exterior.</p>
+                
+                <p class="bg-blue-50 border-l-4 border-blue-400 pl-3 py-2 text-blue-800 rounded-r text-sm">
+                    <i class="fas fa-magic text-blue-500 mr-1"></i> Texto transcrito com sucesso via Inteligência Artificial. Pode agora editar qualquer erro manualmente.
+                </p>
+
+                <p>Muitas pessoas perguntam como começar. O primeiro passo é criar um portfólio de serviços. No próximo mês, a São Tomé e Príncipe vai ter acesso à internet via Starlink, o que mudará tudo.</p>
+            </div>
+
+            <!-- Botão pequeno estilo "Retomar" -->
+            <div class="flex justify-center mt-8">
+                <button class="bg-gray-100 text-gray-600 font-medium py-2 px-6 rounded-full text-xs box-shadow-sm hover:bg-gray-200 transition flex items-center gap-2">
+                    <i class="fas fa-microphone-alt"></i> Continuar a ditar...
+                </button>
+            </div>
+        </div>
+
+        <!-- Sticky Toolbar inferior -->
+        <div class="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-between items-center h-[60px] pb-5 pt-3 px-4 z-20">
+            <div class="flex gap-4 text-gray-700">
+                <button class="hover:text-green-600 transition"><i class="fas fa-image text-lg"></i></button>
+                <button class="hover:text-green-600 transition"><i class="fas fa-bold text-lg"></i></button>
+                <button class="hover:text-green-600 transition"><i class="fas fa-list-ul text-lg"></i></button>
+                <button class="hover:text-green-600 transition flex items-center gap-1 bg-green-50 text-green-700 px-2 rounded font-bold text-xs">H2</button>
+            </div>
+            
+            <div class="text-[10px] text-gray-400 font-bold">
+                71 palavras
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 7: MENU DE TRADUÇÃO (ArgosTranslate) -->
+<div class="flex flex-col items-center mt-10">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">7. Selecionar Idioma (Tradução da Plataforma)</h2>
+    <div class="mockup-container">
+        
+        <!-- Header com Dropdown Aberto -->
+        <div class="absolute top-0 w-full px-4 py-4 mt-6 flex justify-between items-center z-30">
+            <button class="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md text-white flex items-center justify-center"><i class="fas fa-arrow-left"></i></button>
+            <div class="flex gap-2 relative">
+                <!-- Translation Button Ativo -->
+                <button class="px-3 h-10 rounded-full bg-white text-green-700 flex items-center justify-center shadow-lg font-bold text-sm">
+                    <i class="fas fa-language mr-1 text-lg"></i> PT
+                </button>
+
+                <!-- DROPDOWN DE TRADUÇÃO ABSOLUTO -->
+                <div class="absolute top-12 right-0 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-1 animate-[slideUp_0.2s_ease-out]">
+                    
+                    <!-- Cabeçalho Discreto e Classudo -->
+                    <div class="px-4 py-3 bg-gray-50 flex flex-col items-center justify-center text-center border-b border-gray-100">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest"><i class="fas fa-language text-gray-400 mr-1"></i> Tradução Global</span>
+                        <span class="text-[9px] text-gray-400 font-medium mt-0.5">Tradução gerada automaticamente</span>
+                    </div>
+
+                    <!-- Original -->
+                    <button class="w-full text-left px-4 py-2.5 text-sm font-bold text-green-700 flex justify-between items-center bg-green-50/50 border-b border-gray-100">
+                        <span>🇵🇹 Português (Original)</span>
+                        <i class="fas fa-check text-green-600 text-xs"></i>
+                    </button>
+                    
+                    <!-- Lista com todos os idiomas desenrolados (sem limite de altura para ver no mockup) -->
+                    <div class="pb-2">
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition border-t border-gray-50">
+                            <span>🇬🇧 Inglês</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇪🇸 Espanhol</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇫🇷 Francês</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇮🇹 Italiano</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇩🇪 Alemão</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇨🇳 Chinês (Mandarim)</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇯🇵 Japonês</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇰🇷 Coreano</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇮🇳 Hindi</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇸🇦 Árabe</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇷🇺 Russo</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇹🇷 Turco</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇧🇩 Bengali</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇻🇳 Vietnamita</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇳🇱 Holandês</span>
+                        </button>
+                        <button class="w-full text-left px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                            <span>🇵🇱 Polonês</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto hide-scrollbar pb-24 relative">
+            <!-- Background escurinho fingindo que o menu tá aberto por cima da tela de ler artigo -->
+            <div class="absolute inset-0 bg-black/60 z-20 backdrop-blur-[2px] transition-all"></div>
+
+            <div class="relative w-full h-72">
+                <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover">
+            </div>
+            <div class="bg-white px-5 pt-10 h-full -mt-5 rounded-t-3xl relative z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.2)]">
+                <h1 class="text-2xl font-extrabold text-gray-900 mb-4">Como a Tecnologia...</h1>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MOCKUP 8: OPEN GRAPH / WHATSAPP SHARE PREVIEW -->
+<div class="flex flex-col items-center mt-10">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">8. Quando é partilhado (WhatsApp/Redes Sociais)</h2>
+    <div class="mockup-container justify-center items-center bg-[#ECE5DD] px-4">
+        
+        <!-- Fundo simulando um chat do WhatsApp -->
+        <div class="absolute inset-0 bg-[#e5ddd5] opacity-50 z-0" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');"></div>
+
+        <!-- Bolha de Conversa simulando o Link enviado -->
+        <div class="relative z-10 w-full max-w-[320px] bg-[#dcf8c6] rounded-xl rounded-tr-none shadow-sm p-1">
+            <!-- Link azul normal do Whatsapp -->
+            <p class="px-2 pt-1 pb-1 text-[#0275d8] text-[13px] underline leading-tight bg-white rounded-t-lg mx-1 mt-1 font-medium break-all">https://jovensstp.com/blog/como-a-tecnologia...</p>
+            
+            <!-- Cartão OGP da Vossa Plataforma (Link Preview) -->
+            <div class="bg-[#f0f2f5] border-x border-b border-[#cfd2d6] mx-1 rounded-b-lg mb-1 overflow-hidden">
+                <!-- Imagem Extraída pelo WhatsApp -->
+                <div class="relative h-40">
+                    <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover">
+                    <!-- Faixa Verde da JovensSTP sobreposta na imagem -->
+                    <div class="absolute bottom-0 w-full bg-green-600/90 text-white text-[10px] px-2 py-1 font-bold">
+                        JOVENSSTP.COM | BLOG
+                    </div>
+                </div>
+                
+                <!-- Título e Descrição capturados no WhatsApp -->
+                <div class="p-3 bg-gray-50 flex flex-col justify-between h-[90px]">
+                    <div>
+                        <h3 class="font-bold text-[#111111] text-sm leading-snug line-clamp-2">Como a Tecnologia Está a Transformar São Tomé e Príncipe</h3>
+                    </div>
+                    <p class="text-[#555] text-[11px] uppercase truncate tracking-wide mt-1">Ler Artigo Completo (5 min) - Por João Silva</p>
+                </div>
+            </div>
+
+            <!-- Hora da msg -->
+            <div class="flex justify-end pr-2 pb-1 text-[#000000] opacity-40 text-[10px]">
+                15:42 <i class="fas fa-check-double text-blue-500 ml-1"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+</body>
+</html>

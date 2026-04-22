@@ -1,93 +1,73 @@
 import { useState, useEffect } from 'react'
-import { X, Search, User, Briefcase, Users } from 'lucide-react'
-import { db } from '../services/firebase'
 import { collection, query, getDocs, limit } from 'firebase/firestore'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { Search, X, User, Briefcase, Users } from 'lucide-react'
+import { db } from '../services/firebase'
 
-export const SearchModal = ({ isOpen, onClose }) => {
+export const SearchModal = ({ isOpen, onClose, searchContext = 'default' }) => {
   const navigate = useNavigate()
   const location = useLocation()
+  const [allData, setAllData] = useState({ users: [], jobs: [], communities: [] })
   const [searchTerm, setSearchTerm] = useState('')
   const [results, setResults] = useState({ users: [], jobs: [], communities: [] })
   const [loading, setLoading] = useState(false)
 
-  // Detectar contexto baseado na rota atual
-  const getSearchContext = () => {
-    const path = location.pathname
-    if (path.includes('/jobs')) return 'jobs'
-    if (path.includes('/communities')) return 'communities'
-    if (path.includes('/profile') || path === '/') return 'people'
-    return 'all' // busca geral
-  }
+  // 1. Pre-fetch data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const fetchData = async () => {
+        setLoading(true)
+        try {
+          const [usersSnap, jobsSnap, communitiesSnap] = await Promise.all([
+            getDocs(query(collection(db, 'users'), limit(100))),
+            getDocs(query(collection(db, 'jobs'), limit(50))),
+            getDocs(query(collection(db, 'communities'), limit(50)))
+          ])
 
-  const searchContext = getSearchContext()
+          setAllData({
+            users: usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+            jobs: jobsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+            communities: communitiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+          })
+        } catch (error) {
+          console.error('Search pre-fetch error:', error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchData()
+    }
+  }, [isOpen])
 
+  // 2. Instant Local Filter
   useEffect(() => {
     if (!searchTerm.trim()) {
       setResults({ users: [], jobs: [], communities: [] })
       return
     }
 
-    const searchTimeout = setTimeout(async () => {
-      setLoading(true)
-      try {
-        let users = []
-        let jobs = []
-        let communities = []
+    const term = searchTerm.toLowerCase()
+    
+    const filteredUsers = allData.users.filter(u => 
+      (u.displayName || '').toLowerCase().includes(term) || 
+      (u.company || '').toLowerCase().includes(term)
+    )
 
-        // Buscar baseado no contexto
-        if (searchContext === 'all' || searchContext === 'people') {
-          const usersRef = collection(db, 'users')
-          const usersSnapshot = await getDocs(usersRef)
-          users = usersSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(user => {
-              const term = searchTerm.toLowerCase();
-              return (
-                user.displayName?.toLowerCase().includes(term) ||
-                user.company?.toLowerCase().includes(term) ||
-                user.bio?.toLowerCase().includes(term) ||
-                user.name?.toLowerCase().includes(term) ||
-                user.email?.toLowerCase().includes(term)
-              );
-            })
-        }
+    const filteredJobs = allData.jobs.filter(j => 
+      (j.title || '').toLowerCase().includes(term) || 
+      (j.description || '').toLowerCase().includes(term)
+    )
 
-        if (searchContext === 'all' || searchContext === 'jobs') {
-          const jobsRef = collection(db, 'jobs')
-          const jobsQuery = query(jobsRef, limit(10))
-          const jobsSnapshot = await getDocs(jobsQuery)
-          jobs = jobsSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(job => 
-              job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              job.location?.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-        }
+    const filteredCommunities = allData.communities.filter(c => 
+      (c.name || '').toLowerCase().includes(term)
+    )
 
-        if (searchContext === 'all' || searchContext === 'communities') {
-          const communitiesRef = collection(db, 'communities')
-          const communitiesQuery = query(communitiesRef, limit(15))
-          const communitiesSnap = await getDocs(communitiesQuery)
-          communities = communitiesSnap.docs
-            .map(doc => ({ id: doc.id, ...doc.data(), membersCount: doc.data().members?.length || 0 }))
-            .filter(c =>
-              c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              c.description?.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-        }
-
-        setResults({ users, jobs, communities })
-      } catch (error) {
-        console.error('Erro na busca:', error)
-      } finally {
-        setLoading(false)
-      }
-    }, 300)
-
-    return () => clearTimeout(searchTimeout)
-  }, [searchTerm, searchContext])
+    setResults({
+      users: filteredUsers.slice(0, 15),
+      jobs: filteredJobs.slice(0, 10),
+      communities: filteredCommunities.slice(0, 15)
+    })
+  }, [searchTerm, allData])
 
   const handleUserClick = (userId) => {
     navigate(`/profile/${userId}`)

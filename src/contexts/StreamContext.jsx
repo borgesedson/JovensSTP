@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { toast } from 'react-hot-toast'
 import { StreamChat } from 'stream-chat'
 import { Chat } from 'stream-chat-react'
 import { useAuth } from '../hooks/useAuth'
-import { getFunctions, httpsCallable } from 'firebase/functions'
-import { app, db, functions } from '../services/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from '../services/firebase'
+import { doc, getDoc } from 'firebase/firestore'
 import { StreamContext } from './streamContextValue'
+import { registerForPush, setupForegroundNotifications } from '../services/notifications'
+import { getMessagingInstance } from '../services/firebase'
 
 export const StreamProvider = ({ children }) => {
   const { user } = useAuth()
@@ -33,22 +36,52 @@ export const StreamProvider = ({ children }) => {
 
       try {
         console.log('🔄 Criando cliente GetStream...')
-        // Initialize Stream Chat client with increased timeout
         const client = StreamChat.getInstance(apiKey, {
-          timeout: 10000, // 10 segundos ao invés de 3 (default)
+          timeout: 10000,
         })
 
-        console.log('🔄 Chamando Cloud Function para gerar token...')
-        // Use central functions instance
-        let streamToken;
+        // ✅ FIX: Buscar nome real do Firestore ANTES de qualquer coisa
+        let realName = user.displayName
+        let realPhoto = user.photoURL
 
         try {
-          // Attempting v4 name
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          if (userDoc.exists()) {
+            const data = userDoc.data()
+            realName = realName
+              || data.displayName
+              || data.name
+              || data.username
+              || data.fullName
+              || user.email?.split('@')[0]
+              || 'Utilizador'
+            realPhoto = realPhoto || data.photoURL || data.avatar || null
+          } else {
+            realName = realName || user.email?.split('@')[0] || 'Utilizador'
+          }
+        } catch (e) {
+          console.warn('⚠️ Não foi possível buscar perfil do Firestore:', e)
+          realName = realName || user.email?.split('@')[0] || 'Utilizador'
+        }
+
+        console.log('👤 Nome real encontrado:', realName)
+
+        // Imagem segura com nome real
+        const safeImage =
+          realPhoto && !String(realPhoto).startsWith('data:')
+            ? realPhoto
+            : `https://ui-avatars.com/api/?name=${encodeURIComponent(realName)}&background=16a34a&color=fff`
+
+        // Gerar token via Cloud Function
+        console.log('🔄 Chamando Cloud Function para gerar token...')
+        let streamToken
+
+        try {
           const createStreamToken = httpsCallable(functions, 'v4_createUserStreamToken')
           console.log('📡 Chamando v4_createUserStreamToken com UID:', user.uid)
           const response = await createStreamToken({
             userId: user.uid,
-            userName: user.displayName || 'Usuário'
+            userName: realName,
           })
 
           if (response.data && (response.data.streamToken || response.data.token)) {
@@ -66,20 +99,15 @@ export const StreamProvider = ({ children }) => {
           }
         } catch (error) {
           console.warn('⚠️ Falha ao obter token das Cloud Functions:', error.message)
-          // Don't set mock immediately, check if we have a locally stored one or similar
           streamToken = 'dev_chat_token_mock'
         }
 
-        // Connect user to Stream Chat
-        const safeImage =
-          user.photoURL && !String(user.photoURL).startsWith('data:')
-            ? user.photoURL
-            : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'U')}&background=16a34a&color=fff`
-
+        // Conectar ao Stream com nome real
         try {
           console.log('🔄 Tentando client.connectUser para:', user.uid)
+
           if (streamToken === 'dev_chat_token_mock') {
-            console.warn('🚫 Conexão abortada: token é um mock. Verifique os logs da Cloud Function.')
+            console.warn('🚫 Conexão abortada: token é um mock.')
             setChatClient(null)
             setLoading(false)
             return
@@ -88,94 +116,48 @@ export const StreamProvider = ({ children }) => {
           await client.connectUser(
             {
               id: user.uid,
-              name: user.displayName || user.email?.split('@')[0] || 'Usuário',
+              name: realName,
               image: safeImage,
             },
             streamToken
           )
-          console.log('✅ GetStream Chat connected successfully')
+          console.log('✅ GetStream Chat connected — nome:', realName)
           setChatClient(client)
 
-          // ✅ NOVO: Registrar dispositivo para Push Notifications nativo (Stream -> FCM)
+          // Notificações foreground
+          registerForPush(user.uid).then(token => {
+            if (token) console.log('🔔 Push registration complete')
+          })
+
+          getMessagingInstance().then(messaging => {
+            if (messaging) {
+              setupForegroundNotifications(messaging, (url) => {
+                window.location.href = url
+              })
+            }
+          })
+
+          // Registar dispositivo para push no Stream Chat (FCM)
           const registerNativePush = async () => {
             try {
-              // Verifica permissão. Se não tiver, não faz nada mas fica pronto para quando tiver.
-              const { registerForPush } = await import('../services/notifications')
               const fcmToken = await registerForPush(user.uid)
-
               if (fcmToken) {
-                console.log('📡 Registrando dispositivo no Stream Chat (Native Push)...')
-                await client.addDevice(fcmToken, 'firebase', user.uid, 'Firebase')
-                console.log('✅ Dispositivo registrado com sucesso no Stream.')
-              } else {
-                console.log('ℹ️ Registro de Push pendente (sem token ou permissão).')
+                console.log('📡 Registrando dispositivo no Stream Chat...')
+                await client.addDevice(fcmToken, 'firebase', user.uid)
+                console.log('✅ Dispositivo registrado no Stream.')
               }
             } catch (pushErr) {
-              console.warn('⚠️ Falha ao registrar dispositivo no Stream (Native Push):', pushErr)
-              // Tentativa de fallback: Se falhar com 4 argumentos, tentar com 3 (token, type, providerName)
-              // Isso pode acontecer se o SDK inferir o userID do cliente conectado e tratar o 3º argumento como nome do provedor
-              try {
-                if (pushErr.message && (pushErr.message.includes('push provider ""') || pushErr.message.includes('provider not found'))) {
-                  console.log('🔄 Tentando registrar com assinatura alternativa (sem userID explícito)...');
-                  await client.addDevice(fcmToken, 'firebase', 'Firebase');
-                  console.log('✅ Dispositivo registrado com sucesso no Stream (Fallback).');
-                }
-              } catch (fallbackErr) {
-                console.warn('⚠️ Falha definitiva no registro de push:', fallbackErr);
-              }
+              console.warn('⚠️ Falha ao registrar dispositivo no Stream:', pushErr)
             }
           }
           registerNativePush()
+
         } catch (connErr) {
           console.error('❌ Erro CRÍTICO ao conectar ao Stream Chat:', connErr)
           setChatClient(null)
-          const toast = (await import('react-hot-toast')).default;
-          toast.error('Ocorreu um erro ao conectar ao chat. Por favor, tente novamente mais tarde.');
+          const toast = (await import('react-hot-toast')).default
+          toast.error('Ocorreu um erro ao conectar ao chat. Por favor, tente novamente mais tarde.')
         }
-
-        // Listener para novas mensagens (notificações)
-        // DESABILITADO: Causava erro com channelType undefined
-        // O sistema de email (CustomMessageInput) já cuida das notificações
-        /*
-        client.on('message.new', async (event) => {
-          // Ignorar mensagens do próprio usuário
-          if (event.user?.id === user.uid) return
-
-          try {
-            const channelType = event.channel?.type
-            const channelId = event.channel?.id
-            const senderName = event.user?.name || 'Alguém'
-            const messageText = event.message?.text || 'Nova mensagem'
-
-            // Detectar se é comunidade
-            const isCommunity = channelId?.startsWith('community-')
-            const communityId = isCommunity ? channelId.replace('community-', '') : null
-            const channelName = event.channel?.data?.name || 'Canal'
-
-            // Criar notificação no Firestore (subcoleção usada pelo badge)
-            await addDoc(collection(db, 'notifications', user.uid, 'items'), {
-              type: 'message',
-              message: (isCommunity ? `Nova mensagem em ${channelName}: ` : `Mensagem de ${senderName}: `) + messageText.substring(0, 100),
-              read: false,
-              timestamp: serverTimestamp(),
-              link: isCommunity && communityId
-                ? `/communities/${communityId}`
-                : '/chat',
-              metadata: {
-                channelType,
-                channelId,
-                senderId: event.user?.id,
-                senderName,
-                isCommunity,
-              }
-            })
-
-            console.log('✅ Notificação criada para nova mensagem')
-          } catch (error) {
-            console.error('Erro ao criar notificação:', error)
-          }
-        })
-        */
 
       } catch (error) {
         console.error('Error connecting to Stream Chat:', error)
@@ -186,7 +168,6 @@ export const StreamProvider = ({ children }) => {
 
     initStreamChat()
 
-    // Cleanup on unmount
     return () => {
       if (chatClient) {
         chatClient.disconnectUser().catch(console.error)
@@ -195,59 +176,40 @@ export const StreamProvider = ({ children }) => {
     }
   }, [user?.uid, user?.displayName, user?.photoURL])
 
-  // Helper function para criar canal 1-on-1
-  const createChannel = async (otherUserId, otherUserName) => {
+  // Criar canal 1-on-1 via Backend
+  const createChannel = useCallback(async (otherUserId) => {
     if (!chatClient || !user) {
       throw new Error('Chat client não inicializado')
     }
 
     try {
-      // ✅ NOVO: Garantir que o outro usuário existe no Stream antes de criar canal
-      try {
-        console.log('📡 Chamando v4_ensureStreamUsers para:', otherUserId)
-        const ensureUserFn = httpsCallable(functions, 'v4_ensureStreamUsers')
-        const result = await ensureUserFn({ userIds: [otherUserId] })
-        console.log('✅ Resultado da sincronização:', result.data)
-      } catch (ensureErr) {
-        console.warn('⚠️ Falha ao garantir existência do usuário no Stream (pode ser CORS ou erro interno):', ensureErr)
-        // Continuamos mesmo assim, o Stream pode já ter o usuário
+      console.log('📡 Iniciando criação de canal via Backend para:', otherUserId)
+      const createChannelFn = httpsCallable(functions, 'v4_createDirectChannel')
+      const result = await createChannelFn({ otherUserId })
+
+      if (result.data?.success && result.data?.channelId) {
+        console.log('✅ Canal criado/recuperado via Backend:', result.data.channelId)
+        const channel = chatClient.channel('messaging', result.data.channelId)
+        await channel.watch()
+        return result.data.channelId
       }
 
-      // Cria ID único para o canal (ordenado alfabeticamente para consistência)
-      const members = [user.uid, otherUserId].sort()
-      const channelId = `chat-${members.join('-')}`
-
-      // Verifica se já existe um canal com esses membros
-      const filter = {
-        type: 'messaging',
-        members: { $eq: members },
-      }
-
-      const existingChannels = await chatClient.queryChannels(filter, {}, { limit: 1 })
-
-      // Se já existe, retorna o ID do canal existente
-      if (existingChannels.length > 0) {
-        console.log('✅ Canal existente encontrado:', existingChannels[0].id)
-        return existingChannels[0].id
-      }
-
-      // Caso contrário, cria ou obtém canal novo
-      const channel = chatClient.channel('messaging', channelId, {
-        members: members,
-      })
-
-      await channel.watch()
-
-      console.log('✅ Novo canal criado:', channelId)
-      return channelId
+      throw new Error('Falha na resposta do backend para criação de canal')
     } catch (error) {
-      console.error('Erro ao criar canal:', error)
+      console.error('❌ Erro crítico ao criar canal:', error)
+      toast.error('Erro ao iniciar chat. Tente novamente.')
       throw error
     }
-  }
+  }, [chatClient, user])
+
+  const value = useMemo(() => ({
+    chatClient,
+    loading,
+    createChannel
+  }), [chatClient, loading, createChannel])
 
   return (
-    <StreamContext.Provider value={{ chatClient, loading, createChannel }}>
+    <StreamContext.Provider value={value}>
       {chatClient ? (
         <Chat client={chatClient} theme="str-chat__theme-light">
           {children}

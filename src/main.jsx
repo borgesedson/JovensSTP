@@ -11,3 +11,10 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+// Register Firebase Messaging Service Worker for background push notifications
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    .then((reg) => console.log('✅ SW registered:', reg.scope))
+    .catch((err) => console.warn('SW registration failed:', err))
+}

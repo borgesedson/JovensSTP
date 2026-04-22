@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -35,13 +35,11 @@ export const AuthProvider = ({ children }) => {
             ...userSnap.data(),
           })
           setUserType(userSnap.data().type)
-          // Attempt to register for push notifications only if already granted (avoid auto-prompt)
+          // Register for push notifications — request permission if needed
           try {
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-              registerForPush(authUser.uid).catch((e) => console.warn('FCM register failed', e))
-            }
+            registerForPush(authUser.uid, true).catch((e) => console.warn('FCM register failed', e))
           } catch (e) {
-            console.debug('Notification permission check failed', e)
+            console.debug('Push registration failed', e)
           }
           // Subscribe to live profile updates
           const unsubProfile = onSnapshot(userRef, (snap) => {
@@ -191,7 +189,7 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     userType,
     loading,
@@ -201,7 +199,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     isAuthenticated: !!user,
-  }
+  }), [user, userType, loading, error, signup, login, logout, resetPassword])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

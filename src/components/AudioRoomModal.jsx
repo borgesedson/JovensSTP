@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, useContext } from 'react'
 import { X, Mic, MicOff, Hand, UserPlus, UserMinus, Shield } from 'lucide-react'
 import { db } from '../services/firebase'
 import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot, deleteDoc } from 'firebase/firestore'
@@ -44,6 +44,18 @@ export const AudioRoomModal = ({ room: initialRoom, onClose }) => {
     const c = videoClient.call('default', callId)
     const connect = async () => {
       try {
+        // ✅ NOVO: Garantir que o usuário está no Stream antes de entrar no Live
+        try {
+          const { getFunctions, httpsCallable } = await import('firebase/functions');
+          const { app } = await import('../services/firebase');
+          const functions = getFunctions(app);
+          const ensureUserFn = httpsCallable(functions, 'v4_ensureStreamUsers');
+          await ensureUserFn({ userIds: [user.uid] });
+          console.log('✅ Usuário host/participante sincronizado no Stream para Live:', user.uid);
+        } catch (ensureErr) {
+          console.warn('⚠️ Falha ao garantir sincronização no Stream para Live:', ensureErr);
+        }
+
         // Get or create call
         await c.getOrCreate({
           data: {
@@ -292,16 +304,27 @@ export const AudioRoomModal = ({ room: initialRoom, onClose }) => {
   const speakers = room.participants?.filter(p => p.role === 'host' || p.role === 'speaker') || []
   const listeners = room.participants?.filter(p => p.role === 'listener') || []
 
-  // Componente interno para detectar speaking state do Stream
+  // Componente interno para detectar speaking state do Stream e sincronizar (com cautela) com Firestore
   const SpeakingDetector = () => {
     const { useDominantSpeaker } = useCallStateHooks()
     const dominantSpeaker = useDominantSpeaker()
+    const lastUpdateRef = useRef(0)
+    const lastSpeakerIdRef = useRef(null)
 
     useEffect(() => {
+      // Sincronizar apenas se o speaker mudar e houver um intervalo de segurança de 2s
       if (!dominantSpeaker || !room.id) return
+
+      const now = Date.now()
+      if (dominantSpeaker.userId === lastSpeakerIdRef.current && (now - lastUpdateRef.current < 2000)) {
+        return
+      }
 
       const updateSpeakingState = async () => {
         try {
+          lastUpdateRef.current = now
+          lastSpeakerIdRef.current = dominantSpeaker.userId
+
           const roomRef = doc(db, 'audioRooms', room.id)
           const updatedParticipants = room.participants?.map(p => ({
             ...p,
@@ -310,12 +333,12 @@ export const AudioRoomModal = ({ room: initialRoom, onClose }) => {
 
           await updateDoc(roomRef, { participants: updatedParticipants })
         } catch (e) {
-          console.warn('Erro ao atualizar speaking state:', e)
+          console.warn('Erro ao atualizar speaking state (Throttled):', e)
         }
       }
 
       updateSpeakingState()
-    }, [dominantSpeaker])
+    }, [dominantSpeaker, room.id, room.participants])
 
     return null
   }

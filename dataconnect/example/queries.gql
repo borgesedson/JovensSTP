@@ -1,78 +1,53 @@
-# Example queries for a simple movie app.
+# JovensSTP Meeting Queries
 
-# @auth() directives control who can call each operation.
-# Anyone should be able to list all movies, so the auth level is set to PUBLIC
-query ListMovies @auth(level: PUBLIC, insecureReason: "Anyone can list all movies.") {
-  movies {
-    id
-    title
-    imageUrl
-    genre
-  }
-}
-
-# List all users, only admins should be able to list all users, so we use NO_ACCESS
-query ListUsers @auth(level: NO_ACCESS) {
-  users {
-    id
-    username
-  }
-}
-
-# Logged in users can list all their reviews and movie titles associated with the review
-# Since the query uses the uid of the current authenticated user, we set auth level to USER
-query ListUserReviews @auth(level: USER) {
+# User related queries
+query GetCurrentUser @auth(level: USER) {
   user(key: { id_expr: "auth.uid" }) {
     id
     username
-    # <field>_on_<foreign_key_field> makes it easy to grab info from another table
-    # Here, we use it to grab all the reviews written by the user.
-    reviews: reviews_on_user {
-      rating
-      reviewDate
-      reviewText
-      movie {
-        id
-        title
-      }
+    displayName
+    photoURL
+    email
+  }
+}
+
+# Get a single meeting by UUID
+query GetMeeting($id: UUID!) @auth(level: USER, insecureReason: "Any authenticated user can join a meeting via its ID.") {
+  meeting(id: $id) {
+    id
+    title
+    description
+    callId
+    status
+    startTime
+    endTime
+    host {
+      id
+      username
+      displayName
+      photoURL
     }
   }
 }
 
-# Get movie by id
-query GetMovieById($id: UUID!) @auth(level: PUBLIC, insecureReason: "Anyone can get a movie by id.") {
-  movie(id: $id) {
+# List all meetings where the user is the host or a participant
+query ListUserMeetings @auth(level: USER) {
+  meetings(where: { hostId: { eq_expr: "auth.uid" } }, orderBy: [{ startTime: DESC }]) {
     id
     title
-    imageUrl
-    genre
-    metadata: movieMetadata_on_movie {
-      rating
-      releaseYear
-      description
-    }
-    reviews: reviews_on_movie {
-      reviewText
-      reviewDate
-      rating
-      user {
-        id
-        username
-      }
-    }
+    startTime
+    status
+    callId
   }
 }
 
-# Search for movies, actors, and reviews
-query SearchMovie($titleInput: String, $genre: String) @auth(level: PUBLIC, insecureReason: "Anyone can search for movies.") {
-  movies(
-    where: {
-      _and: [{ genre: { eq: $genre } }, { title: { contains: $titleInput } }]
-    }
-  ) {
+# List recordings for a specific meeting
+query ListMeetingRecordings($meetingId: UUID!) @auth(level: USER, insecureReason: "Authenticated users can view recordings of the meeting.") {
+  meetingRecordings(where: { meetingId: { eq: $meetingId } }, orderBy: [{ createdAt: DESC }]) {
     id
-    title
-    genre
-    imageUrl
+    streamUrl
+    fileSize
+    durationSeconds
+    createdAt
   }
 }

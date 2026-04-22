@@ -1,34 +1,45 @@
 import { getMessagingInstance } from './firebase'
-import { getToken } from 'firebase/messaging'
+import { getToken, onMessage } from 'firebase/messaging'
 import { doc, updateDoc, arrayUnion, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 
-// Registers service worker, gets FCM token and saves it to user doc.
+// Registers the Firebase Messaging SW, gets FCM token and saves it to user doc.
 export const registerForPush = async (uid, forcePrompt = false) => {
   if (!uid) return null
-
-  if (!('Notification' in window)) return null
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return null
 
   try {
-    // If forcePrompt is true, request permission if not already granted
-    if (forcePrompt && Notification.permission === 'default') {
+    // Step 1: Request permission
+    if (Notification.permission === 'default' && forcePrompt) {
       const permission = await Notification.requestPermission()
+      console.log('🔔 Notification permission:', permission)
       if (permission !== 'granted') return null
     }
 
-    if (Notification.permission !== 'granted') return null
-
-    // Use the PWA service worker registration
-    let registration
-    try {
-      registration = await navigator.serviceWorker.ready
-    } catch (e) {
-      console.warn('Service worker not ready', e)
+    if (Notification.permission !== 'granted') {
+      console.log('🔕 Notifications not granted:', Notification.permission)
       return null
     }
 
+    // Step 2: Register the FIREBASE messaging SW explicitly (not the PWA one)
+    let registration
+    try {
+      registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/firebase-cloud-messaging-push-scope'
+      })
+      console.log('✅ Firebase Messaging SW registered:', registration.scope)
+    } catch (e) {
+      console.warn('Firebase Messaging SW registration failed:', e)
+      // Fallback: try using whatever SW is ready
+      registration = await navigator.serviceWorker.ready
+    }
+
+    // Step 3: Get FCM token
     const messaging = await getMessagingInstance()
-    if (!messaging) return null
+    if (!messaging) {
+      console.warn('Messaging not supported')
+      return null
+    }
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || undefined
 
@@ -38,18 +49,103 @@ export const registerForPush = async (uid, forcePrompt = false) => {
     })
 
     if (fcmToken) {
-      // Save token into user's document (arrayUnion to allow multiple devices)
+      // Step 3.1: Save token into dedicated fcm_tokens collection
+      const tokenRef = doc(db, 'fcm_tokens', uid)
+      await setDoc(tokenRef, {
+        tokens: arrayUnion(fcmToken),
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+      
+      // Step 3.2: Legacy backup (don't break existing background triggers yet)
       const userRef = doc(db, 'users', uid)
       await updateDoc(userRef, {
         fcmTokens: arrayUnion(fcmToken),
+      }).catch(() => {}) 
+
+      console.log('✅ FCM Token saved to fcm_tokens/', uid)
+
+      // Step 4: Listen for foreground messages (integrated listener)
+      onMessage(messaging, (payload) => {
+        console.log('📩 Foreground message:', payload)
+        const { senderName, senderPhoto, channelId } = payload.data || {}
+        const title = payload.notification?.title || senderName || 'JovensSTP'
+        const body = payload.notification?.body || 'Nova mensagem'
+        
+        // Browser notification with photo
+        if (Notification.permission === 'granted') {
+          const notif = new Notification(title, {
+            body,
+            icon: senderPhoto || '/icon-192.png',
+            badge: '/icon-72.png',
+            tag: channelId || 'message',
+            renotify: true,
+          })
+
+          notif.onclick = () => {
+            window.focus()
+            // We'll need access to navigate here, but for simplicity we use window.location
+            if (channelId) window.location.href = `/chat?channel=${channelId}`
+            notif.close()
+          }
+        }
       })
-      console.log('✅ FCM Token registrado no Firestore:', fcmToken.substring(0, 10) + '...')
+
       return fcmToken
     }
   } catch (err) {
-    // Not blocking: log and continue
-    console.error('registerForPush error', err)
+    console.error('registerForPush error:', err)
     return null
+  }
+}
+
+/**
+ * setupForegroundNotifications
+ * Specifically for use in App.jsx to handle deep linking with navigate
+ */
+export const setupForegroundNotifications = (messaging, navigate) => {
+  if (!messaging) return;
+  
+  return onMessage(messaging, (payload) => {
+    console.log('📩 Foreground message (custom):', payload);
+    const { senderName, senderPhoto, channelId } = payload.data || {};
+    const title = payload.notification?.title || senderName || 'JovensSTP';
+    const body = payload.notification?.body || 'Nova mensagem';
+
+    if (Notification.permission === 'granted') {
+      const notif = new Notification(title, {
+        body,
+        icon: senderPhoto || '/icon-192.png',
+        badge: '/icon-72.png',
+        tag: channelId || 'message',
+        renotify: true,
+      });
+
+      notif.onclick = () => {
+        window.focus();
+        if (navigate) {
+          navigate(channelId ? `/chat?channel=${channelId}` : '/chat');
+        } else {
+          window.location.href = channelId ? `/chat?channel=${channelId}` : '/chat';
+        }
+        notif.close();
+      };
+    }
+  });
+};
+
+// Trigger a manual test ping notification for the current user
+export const testPushPing = async () => {
+  try {
+    const { getFunctions, httpsCallable } = await import('firebase/functions');
+    const { app } = await import('./firebase');
+    const functions = getFunctions(app, 'us-central1');
+    const ping = httpsCallable(functions, 'v4_testPushPing');
+    const result = await ping();
+    console.log('🏓 Ping result:', result.data);
+    return result.data;
+  } catch (e) {
+    console.error('testPushPing failed:', e);
+    throw e;
   }
 }
 

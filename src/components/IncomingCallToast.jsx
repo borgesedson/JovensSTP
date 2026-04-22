@@ -16,7 +16,8 @@ const IncomingCallToast = () => {
     const incomingCalls = calls.filter(
       (call) => !call.isCreatedByMe &&
         (call.state.callingState === CallingState.RINGING ||
-          call.state.callingState === CallingState.JOINING)
+          call.state.callingState === CallingState.JOINING) &&
+        !call.id.startsWith('meet-')
     );
 
     // Adicionar novas chamadas que ainda não estão na lista persistente
@@ -102,7 +103,7 @@ const IncomingToastCard = ({ call, onDismiss }) => {
   const caller = participants.find((p) => p.userId !== call.currentUserId);
 
   // Tentar pegar do custom data primeiro, depois do participant
-  const callerName = customData?.callerName || caller?.name || caller?.userId || 'Usuário';
+  const callerName = customData?.callerName || caller?.name || caller?.user?.name || caller?.userId || 'Utilizador';
   const callerImage = customData?.callerPhoto || caller?.image;
   const callerId = customData?.callerId || caller?.userId;
   const callType = customData?.type || 'video';

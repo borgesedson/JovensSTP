@@ -78,36 +78,38 @@
 /* Fix para scroll no mobile quando input está focado */
 @media (max-width: 768px) {
   .str-chat__message-list {
-    /* Garante que o scroll funciona mesmo com teclado aberto */
+    /* Garante que o scroll funciona de forma suave e com momentum */
     position: relative !important;
-    overflow-y: scroll !important;
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: contain !important;
+    overscroll-behavior-y: auto !important;
+    touch-action: auto !important;
     /* Altura dinâmica que se ajusta ao viewport real do mobile */
     max-height: 100% !important;
-    height: auto !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    scrollbar-width: none !important;
   }
 
-  .str-chat__message-list-scroll {
-    /* Permite scroll suave */
-    overflow-y: scroll !important;
+  .str-chat__message-list-scroll,
+  .str-chat__ul,
+  .str-chat__list {
+    /* Permite scroll suave com efeito elástico */
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: contain !important;
+    overscroll-behavior-y: auto !important;
   }
 
   /* Previne que o container pai bloqueie o scroll */
   .str-chat__channel,
   .str-chat__main-panel,
-  .str-chat__container {
-    overflow: visible !important;
-    position: relative !important;
-  }
-
+  .str-chat__container,
   .str-chat__window {
+    overflow: hidden !important;
+    position: relative !important;
+    height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
-    overflow: hidden !important;
   }
 
   /* Input fica fixo no bottom enquanto mensagens podem scrollar */

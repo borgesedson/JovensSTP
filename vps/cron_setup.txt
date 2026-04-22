@@ -1,0 +1,21 @@
+# Configuração de Automação (Cron) na VPS
+
+Para que os alertas e desafios sejam enviados automaticamente a cada 10 minutos, executa os seguintes passos na tua VPS:
+
+1. Acede ao terminal da VPS.
+2. Abre o editor de crontab:
+   ```bash
+   crontab -e
+   ```
+3. Adiciona a seguinte linha ao final do ficheiro:
+   ```bash
+   */10 * * * * cd /root/jovensstp_app && ./venv/bin/python vps/engagement_service.py >> vps/engagement.log 2>&1
+   ```
+   *(Nota: Ajusta o caminho `/root/jovensstp_app` se o projeto estiver noutra pasta).*
+
+4. Guarda o ficheiro (Ctrl+O, Enter, Ctrl+X no Nano).
+
+O sistema agora irá:
+- Atualizar o desafio global.
+- Enviar notificações Push e In-app para utilizadores ativos.
+- Registar tudo em `vps/engagement.log` para poderes auditar.

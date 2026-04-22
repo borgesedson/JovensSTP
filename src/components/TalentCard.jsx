@@ -1,4 +1,5 @@
 import { MapPin, MessageCircle, Star, ExternalLink } from 'lucide-react';
+import { AmbassadorBadge } from './AmbassadorBadge';
 import { useNavigate } from 'react-router-dom';
 import { useStreamChat } from '../hooks/useStreamChat';
 import { useState } from 'react';
@@ -47,6 +48,7 @@ const TalentCard = ({ talent, onInvite }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-gray-900 text-lg truncate">{talent.name}</h3>
+            {talent.isAmbassador && <AmbassadorBadge size={18} />}
             {talent.verified && (
               <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
             )}

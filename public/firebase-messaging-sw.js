@@ -1,123 +1,72 @@
-// Firebase Messaging Service Worker (background push handler)
-// This file must live at /firebase-messaging-sw.js (public/ folder)
-// Uses Firebase compat SDK for SW compatibility.
+// Firebase Messaging Service Worker v3.1 — Modern Push with Photos & Diagnostic Logs
+// This file lives at /firebase-messaging-sw.js (public/ folder)
 
-// Match project Firebase version (compat builds)
+self.addEventListener('install', () => {
+  console.log('✅ SW: Installing v3.1...');
+  self.skipWaiting();
+});
+self.addEventListener('activate', (event) => {
+  console.log('✅ SW: Activated!');
+  event.waitUntil(self.clients.claim());
+});
+
 /* eslint-disable no-undef */
-// Service Worker global scope provides importScripts.
-importScripts('https://www.gstatic.com/firebasejs/12.5.0/firebase-app-compat.js')
-importScripts('https://www.gstatic.com/firebasejs/12.5.0/firebase-messaging-compat.js')
+importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
 
-// Load public Firebase config (create /public/firebase-config.js with your config)
-// Expected to set: self.firebaseConfig = { messagingSenderId: 'XXXXXXX', ...optional }
+// Load config from firebase-config.js
 try {
-  importScripts('/firebase-config.js')
+  importScripts('/firebase-config.js');
 } catch (err) {
-  // Continue; we'll error below if config is missing
-  void err
+  console.warn('Config not found');
 }
 
-if (!self.firebaseConfig || !self.firebaseConfig.messagingSenderId) {
-  console.error('[firebase-messaging-sw] Missing firebaseConfig or messagingSenderId. Create public/firebase-config.js and set self.firebaseConfig.')
-} else {
-  // Initialize Firebase in SW (full config or just messagingSenderId both work in compat)
-  try {
-    firebase.initializeApp(self.firebaseConfig)
-  } catch (err) {
-    // Already initialized or other benign conditions should not break background handler
-    void err
-  }
+if (self.firebaseConfig) {
+  firebase.initializeApp(self.firebaseConfig);
+  const messaging = firebase.messaging();
 
-  const messaging = firebase.messaging()
-
-  // Handle background messages
-  messaging.onBackgroundMessage(function (payload) {
-    console.log('[firebase-messaging-sw] Background message received', payload)
+  messaging.onBackgroundMessage((payload) => {
+    console.log('📩 SW Background Message received:', payload);
+    const { senderName, senderPhoto, channelId, type, title: dataTitle, body: dataBody } = payload.data || {};
     
-    const notificationTitle = payload.notification?.title || 'JovensSTP'
-    const notificationData = payload.data || {}
+    const title = payload.notification?.title || dataTitle || senderName || 'JovensSTP';
+    const body = payload.notification?.body || dataBody || 'Nova mensagem';
+
+    self.registration.showNotification(title, {
+      body,
+      icon: senderPhoto || '/icon-192.png',
+      badge: '/icon-72.png',
+      data: { ...payload.data, url: payload.data?.url },
+    });
+  });
+
+  self.addEventListener('notificationclick', (event) => {
+    console.log('🔘 SW: Notification clicked!');
+    event.notification.close();
+
+    const data = event.notification.data || {};
+    let targetPath = data.url || '/home';
     
-    // Definir som apenas para chamadas
-    let soundFile = undefined
-    if (notificationData.type === 'incoming_call') {
-      soundFile = '/sounds/ringtone.mp3' // Toque de chamada
+    if (data.type === 'blog' || data.type === 'new_blog_post') {
+      targetPath = data.url || (data.postId ? `/blog/${data.postId}` : '/blog');
     }
 
-    const notificationOptions = {
-      body: payload.notification?.body || '',
-      icon: payload.notification?.icon || '/manifest-icon-192.maskable.png',
-      badge: '/manifest-icon-192.maskable.png',
-      data: notificationData,
-      vibrate: [200, 100, 200],
-      requireInteraction: notificationData.type === 'incoming_call',
-      tag: notificationData.callId || notificationData.type || 'general',
-      ...(soundFile ? { sound: soundFile } : {}),
-      actions: []
-    }
+    const absoluteUrl = new URL(targetPath, self.location.origin).href;
+    console.log('🚀 SW: Redirecting to:', absoluteUrl);
 
-    // Adicionar ações específicas para chamadas
-    if (notificationData.type === 'incoming_call') {
-      notificationOptions.actions = [
-        { action: 'accept', title: 'Aceitar', icon: '/phone-icon.png' },
-        { action: 'decline', title: 'Recusar', icon: '/phone-off-icon.png' }
-      ]
-    }
-
-    // (Som de notificação desabilitado temporariamente)
-
-    self.registration.showNotification(notificationTitle, notificationOptions)
-  })
-
-  // Handle notification clicks
-  self.addEventListener('notificationclick', function(event) {
-    console.log('[firebase-messaging-sw] Notification clicked', event)
-    event.notification.close()
-
-    const notificationData = event.notification.data || {}
-    const action = event.action
-
-    // URL para abrir
-    let urlToOpen = '/'
-
-    // Definir URL baseado no tipo de notificação
-    if (notificationData.type === 'incoming_call') {
-      if (action === 'decline') {
-        // Apenas fechar - não abrir o app
-        return
-      }
-      // Aceitar ou clique geral na notificação de chamada
-      urlToOpen = '/chat'
-    } else if (notificationData.type === 'new_message') {
-      urlToOpen = '/chat'
-    } else if (notificationData.type === 'new_post') {
-      urlToOpen = '/'
-    }
-
-    // Abrir ou focar a janela
     event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-        // Verificar se já há uma janela aberta
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i]
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
-            return client.focus().then(function(focusedClient) {
-              // Navegar para a URL correta
-              if (focusedClient.navigate) {
-                return focusedClient.navigate(urlToOpen)
-              }
-              return focusedClient
-            })
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          if ((client.url === absoluteUrl || client.url === absoluteUrl + '/') && 'focus' in client) {
+            console.log('🎯 SW: Focusing existing tab');
+            return client.focus();
           }
         }
-
-        // Se não há janela aberta, abrir uma nova
         if (clients.openWindow) {
-          return clients.openWindow(self.location.origin + urlToOpen)
+          console.log('🌐 SW: Opening new window');
+          return clients.openWindow(absoluteUrl);
         }
       })
-    )
-  })
+    );
+  });
 }
-
-
-

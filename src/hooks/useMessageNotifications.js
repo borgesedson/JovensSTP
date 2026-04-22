@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useStreamChat } from './useStreamChat';
 import { useAuth } from '../hooks/useAuth';
-import { notificationSounds } from '../services/notificationSounds';
+
 
 /**
  * Hook que monitora novas mensagens e envia notificações push
@@ -45,7 +45,7 @@ export const useMessageNotifications = () => {
         for (const memberId of memberIds) {
           try {
             await sendMessageNotification({
-              recipientId: memberId,
+              userId: memberId,
               senderName: event.user?.name || 'Alguém',
               senderPhoto: event.user?.image,
               messageText: event.message?.text || 'Enviou uma mensagem',

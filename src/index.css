@@ -28,19 +28,26 @@
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 }
 
-/* Custom global resets & theme tweaks */
-html,
-body,
-#root {
-  height: 100%;
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px; /* Previne que links internos fiquem escondidos sob o header fixed */
+}
+
+html, body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
   margin: 0;
-  background-color: var(--color-background);
-  color: var(--color-text);
+  overscroll-behavior-y: auto; /* Permite pull-to-refresh e scroll natural de "borracha" */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+  color: var(--color-text);
   font-family: 'Source Sans 3', system-ui, -apple-system, sans-serif;
 }
 
@@ -204,4 +211,31 @@ input[type=number] {
   border: 3px solid #10b981;
   border-radius: inherit;
   animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Ambassador Badge Styles */
+.ambassador-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
+  animation: ambassador-glow 2.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ambassador-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.7));
+  }
+}
+
+.ambassador-badge-wrapper {
+  cursor: default;
+}
+
+.ambassador-label {
+  animation: fade-in 0.2s ease-out;
 }

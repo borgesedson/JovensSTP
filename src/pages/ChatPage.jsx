@@ -1,26 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Chat, Channel, ChannelHeader, MessageList, Thread, Window, ChannelList } from 'stream-chat-react'
+import { Chat, Channel, MessageList, Thread, Window, ChannelList, useChatContext } from 'stream-chat-react'
 import { ChatChannelHeader } from '../components/ChatChannelHeader'
 import { CustomMessageInput } from '../components/CustomMessageInput'
-// Removed Firestore profile loading (restored default Stream rendering)
+import { TranslatedMessage } from '../components/TranslatedMessage'
 import { useStreamChat } from '../hooks/useStreamChat'
 import { useMessageNotifications } from '../hooks/useMessageNotifications'
 import { NewChatModal } from '../components/NewChatModal'
 import { BottomNav } from '../components/BottomNav'
-import { Loader } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { useAuth } from '../hooks/useAuth'
-import 'stream-chat-react/dist/css/v2/index.css'
-import '../styles/stream-chat-theme.css'
 import { db } from '../services/firebase'
 import { doc, getDoc } from 'firebase/firestore'
+import 'stream-chat-react/dist/css/v2/index.css'
+import '../styles/stream-chat-theme.css'
 
-const sort = [{ last_message_at: -1 }]
 const communityMetaCache = new Map()
 
 function ChannelPreviewItem(props) {
-  const { channel, setActiveChannel: setActive, currentUserId, navigate, onChannelSelect, client } = props
+  const { channel, onSelect, setActiveChannel } = props
+  const { client } = useChatContext()
+  const navigate = useNavigate()
+  const currentUserId = client?.userID
+  const onChannelSelect = onSelect || setActiveChannel
+  
   const [override, setOverride] = useState({ title: null, image: null })
   const [isOnline, setIsOnline] = useState(false)
 
@@ -63,34 +65,51 @@ function ChannelPreviewItem(props) {
 
   useEffect(() => {
     const run = async () => {
-      if (!channelId.startsWith('community-')) return
-      if (channel.data?.name) return
-      const cached = communityMetaCache.get(channelId)
-      if (cached) {
-        setOverride({ title: cached.title || null, image: cached.image || null })
-        return
-      }
-      try {
-        const communityId = channelId.replace('community-', '')
-        const snap = await getDoc(doc(db, 'communities', communityId))
-        const data = snap.exists() ? snap.data() : null
-        const title = data?.name ? String(data.name) : null
-        const image = data?.imageUrl ? String(data.imageUrl) : null
-        if (title || image) {
-          communityMetaCache.set(channelId, { title, image })
-          setOverride({ title, image })
+      if (channelId.startsWith('community-')) {
+        if (channel.data?.name) return
+        const cached = communityMetaCache.get(channelId)
+        if (cached) {
+          setOverride({ title: cached.title || null, image: cached.image || null })
+          return
         }
-      } catch (err) {
-        void err
+        try {
+          const commId = channelId.replace('community-', '')
+          const snap = await getDoc(doc(db, 'communities', commId))
+          const data = snap.exists() ? snap.data() : null
+          const title = data?.name ? String(data.name) : null
+          const image = data?.imageUrl ? String(data.imageUrl) : null
+          if (title || image) {
+            communityMetaCache.set(channelId, { title, image })
+            setOverride({ title, image })
+          }
+        } catch (err) {
+          void err
+        }
+      } else if (otherUserId) {
+        const cached = communityMetaCache.get(otherUserId)
+        if (cached) {
+          setOverride({ title: cached.title || null, image: cached.image || null })
+          return
+        }
+        try {
+          const snap = await getDoc(doc(db, 'users', otherUserId))
+          const data = snap.exists() ? snap.data() : null
+          const title = data?.displayName || data?.name || null
+          const image = data?.photoURL || data?.avatarUrl || null
+          if (title || image) {
+            communityMetaCache.set(otherUserId, { title, image })
+            setOverride({ title, image })
+          }
+        } catch (err) {
+          void err
+        }
       }
     }
     run()
-  }, [channelId, channel.data?.name])
+  }, [channelId, channel.data?.name, otherUserId])
 
-  // Presence updates
   useEffect(() => {
     if (!otherUserId) return
-    // Initialize from current member data
     const memberEntries = Object.values(channel.state?.members || {})
     const other = memberEntries.find(m => m.user?.id === otherUserId)
     if (other?.user) setIsOnline(Boolean(other.user.online))
@@ -113,7 +132,6 @@ function ChannelPreviewItem(props) {
     }
   }, [client, channel, otherUserId])
 
-  // Format timestamp
   let timeText = ''
   if (timestamp) {
     const now = new Date()
@@ -132,8 +150,9 @@ function ChannelPreviewItem(props) {
   return (
     <div
       onClick={() => {
-        setActive(channel)
-        if (onChannelSelect) onChannelSelect(channel)
+        if (onChannelSelect) {
+          onChannelSelect(channel)
+        }
       }}
       className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition"
     >
@@ -154,39 +173,38 @@ function ChannelPreviewItem(props) {
             <img
               src={override.image || displayImage}
               alt={override.title || displayTitle}
-              className="w-14 h-14 rounded-full object-cover"
+              className="w-12 h-12 rounded-full object-cover"
               onError={(e) => {
-                // Se a imagem falhar ao carregar, esconde e mostra o fallback
                 e.target.style.display = 'none';
                 e.target.nextElementSibling.style.display = 'flex';
               }}
             />
           ) : null}
           <div
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg"
+            className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg"
             style={{ display: (override.image || displayImage) ? 'none' : 'flex' }}
           >
             {(override.title || displayTitle)?.charAt(0)?.toUpperCase() || 'C'}
           </div>
           {otherUserId && (
-            <div className={`absolute bottom-0 right-0 w-4 h-4 ${isOnline ? 'bg-green-500' : 'bg-gray-300'} border-2 border-white rounded-full`}></div>
+            <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 ${isOnline ? 'bg-green-500' : 'bg-gray-300'} border-2 border-white rounded-full`}></div>
           )}
         </button>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between mb-1">
             <p className="font-bold text-sm truncate">
               {override.title || displayTitle}
             </p>
-            <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+            <span className="text-[10px] text-gray-400 ml-2 flex-shrink-0">
               {timeText}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-600 truncate flex-1">
+            <p className="text-xs text-gray-500 truncate flex-1">
               {lastMessage?.text || 'Nenhuma mensagem ainda'}
             </p>
             {unreadCount > 0 && (
-              <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded-full ml-2 flex-shrink-0 font-medium">
+              <span className="bg-green-600 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-2 flex-shrink-0 font-bold">
                 {unreadCount}
               </span>
             )}
@@ -199,74 +217,86 @@ function ChannelPreviewItem(props) {
 
 export const ChatPage = () => {
   const { chatClient, loading } = useStreamChat()
+  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [activeChannel, setActiveChannel] = useState(null)
   const [showNewChatModal, setShowNewChatModal] = useState(false)
   const [loadingChannel, setLoadingChannel] = useState(false)
-  // Temporariamente desativado enquanto usamos o renderer padrão
+  const [viewportHeight, setViewportHeight] = useState('100dvh')
   const [showUnavailable, setShowUnavailable] = useState(false)
-  // const [memberProfiles, setMemberProfiles] = useState({})
-  // const [headerInfo, setHeaderInfo] = useState({ name: '', image: null })
+  
+  const filters = useMemo(() => ({
+    type: 'messaging',
+    members: { $in: [chatClient?.userID || user?.uid].filter(Boolean) }
+  }), [chatClient?.userID, user?.uid])
 
-  // Ativar notificações de mensagens
+  const sort = useMemo(() => [{ last_message_at: -1 }], [])
+  
+  const listOptions = useMemo(() => ({
+    state: true,
+    watch: true,
+    presence: true,
+    limit: 20
+  }), [])
+
+  useEffect(() => {
+    if (!window.visualViewport) return
+    const handleResize = () => setViewportHeight(`${window.visualViewport.height}px`)
+    window.visualViewport.addEventListener('resize', handleResize)
+    handleResize()
+    return () => window.visualViewport.removeEventListener('resize', handleResize)
+  }, [])
+
   useMessageNotifications()
 
-  // Verificar se há um canal para abrir (query param, state ou diretamente)
+  const isHandlingState = useRef(false);
+
   useEffect(() => {
-    const openChannelFromState = async () => {
-      if (!chatClient) return
+    if (!chatClient || isHandlingState.current) return;
+    const searchParams = new URLSearchParams(location.search);
+    const channelIdFromQuery = searchParams.get('channel');
+    const { channelId: channelIdFromState, activeChannel: channelFromState } = location.state || {};
+    const channelId = channelIdFromQuery || channelIdFromState;
 
-      // Suporte para query param ?channel=xxx
-      const searchParams = new URLSearchParams(location.search)
-      const channelIdFromQuery = searchParams.get('channel')
+    if (!channelId || activeChannel?.id === channelId) return;
 
-      // Suporte para location.state (navegação interna)
-      const { channelId: channelIdFromState, activeChannel: channelFromState } = location.state || {}
-
-      const channelId = channelIdFromQuery || channelIdFromState
-
-      if (channelId && !activeChannel) {
-        setLoadingChannel(true)
-        try {
-          // Se o canal já foi passado via state, usa ele diretamente
-          if (channelFromState) {
-            setActiveChannel(channelFromState)
-          } else {
-            // Senão, busca o canal pelo ID
-            const channel = chatClient.channel('messaging', channelId)
-            await channel.watch()
-            setActiveChannel(channel)
-          }
-
-          // Limpar query param após abrir o canal
-          if (channelIdFromQuery) {
-            navigate('/chat', { replace: true, state: { chatOpen: true } })
-          }
-        } catch (error) {
-          console.error('Erro ao abrir canal:', error)
-          toast.error('Erro ao abrir conversa')
-        } finally {
-          setLoadingChannel(false)
+    const openChannel = async () => {
+      isHandlingState.current = true;
+      setLoadingChannel(true);
+      try {
+        if (channelFromState) {
+          setActiveChannel(channelFromState);
+        } else {
+          const channel = chatClient.channel('messaging', channelId);
+          await channel.watch();
+          setActiveChannel(channel);
         }
+        if (channelIdFromQuery) {
+          navigate('/chat', { replace: true, state: { chatOpen: true } });
+        }
+      } catch (error) {
+        console.error('Erro ao abrir canal:', error);
+      } finally {
+        setLoadingChannel(false);
+        isHandlingState.current = false;
       }
-    }
+    };
+    openChannel();
+  }, [chatClient, activeChannel?.id, navigate, location.search, location.state]);
 
-    openChannelFromState()
-  }, [chatClient, location.search, location.state, activeChannel, navigate])
-
-  // Reflect whether a channel is open into route state so BottomNav can hide
   useEffect(() => {
-    if (location.pathname !== '/chat') return
-    const desired = Boolean(activeChannel)
-    const current = Boolean(location.state?.chatOpen)
-    if (desired !== current) {
-      navigate('/chat', { replace: true, state: { ...(location.state || {}), chatOpen: desired } })
+    if (location.pathname !== '/chat') return;
+    const isChatOpen = Boolean(activeChannel);
+    const currentState = Boolean(location.state?.chatOpen);
+    if (isChatOpen !== currentState) {
+      navigate('/chat', { 
+        replace: true, 
+        state: { ...(location.state || {}), chatOpen: isChatOpen } 
+      });
     }
-  }, [activeChannel, location.pathname, location.state, navigate])
+  }, [activeChannel, location.pathname, location.state?.chatOpen, navigate]);
 
-  // (Perf improvement) Custom profile/header loading desativado enquanto resolvemos bug de renderização.
-  // Grace period: show a light "Carregando..." before rendering "não disponível"
   useEffect(() => {
     if (loading) {
       setShowUnavailable(false)
@@ -280,17 +310,13 @@ export const ChatPage = () => {
     return () => clearTimeout(t)
   }, [loading, chatClient])
 
-
-
-  // Usar header padrão do Stream temporariamente
-
   if (loading || loadingChannel) {
     return (
       <div className="flex items-center justify-center h-screen pb-24">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600 mx-auto mb-4"></div>
           <p className="text-gray-500">
-            {loadingChannel ? 'A abrir conversa...' : 'Carregando...'}
+            {loadingChannel ? 'Abrindo conversa...' : 'Carregando...'}
           </p>
         </div>
       </div>
@@ -303,17 +329,7 @@ export const ChatPage = () => {
         <div className="flex items-center justify-center h-screen pb-24">
           <div className="text-center max-w-md p-6">
             <p className="text-gray-600 mb-2">Chat não disponível.</p>
-            <p className="text-gray-400 text-sm mb-4">Verifique sua configuração do GetStream.</p>
-            {import.meta.env.DEV && (
-              <a
-                href="https://getstream.io/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-600 hover:underline"
-              >
-                Criar conta na GetStream →
-              </a>
-            )}
+            <button onClick={() => window.location.reload()} className="text-green-600 font-bold">Recarregar</button>
           </div>
         </div>
       )
@@ -328,83 +344,73 @@ export const ChatPage = () => {
     )
   }
 
-  const { user } = useAuth()
-  const customFilters = {
-    type: 'messaging',
-    members: { $in: [chatClient?.userID || user?.uid] }
-  }
-
   return (
-    <div className="min-h-screen flex bg-gray-50 pt-14 pb-16">
-      <div className="max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-2 md:px-6 w-full">
-        <div className="flex w-full h-[calc(100dvh-3.5rem-4rem)] md:h-[calc(100vh-3.5rem-4rem)]">
-          {/* Channel List (Sidebar) */}
-          <div className={`${activeChannel ? 'hidden md:flex' : 'flex'} w-full md:w-96 bg-white flex-col`}>
-            <div className="bg-white p-4 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-2xl font-bold mb-3">Mensagens</h2>
+    <div className="h-[100dvh] flex flex-col bg-gray-50 pt-[72px] pb-16 overflow-hidden overscroll-auto" style={{ height: viewportHeight }}>
+      <div className="max-w-4xl mx-auto px-0 md:px-6 w-full flex-1 flex flex-col min-h-0">
+        <div className="flex w-full flex-1 min-h-0 relative bg-white md:rounded-t-2xl shadow-sm overflow-hidden">
+          {/* Sidebar */}
+          <div className={`${activeChannel ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 bg-white flex-col border-r border-gray-100`}>
+            <div className="bg-white p-4 border-b border-gray-100 flex-shrink-0">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Mensagens</h2>
               <button
                 onClick={() => setShowNewChatModal(true)}
-                className="w-full bg-green-600 text-white px-4 py-2.5 rounded-xl hover:bg-green-700 transition text-sm font-medium"
+                className="w-full bg-green-600 text-white px-4 py-2.5 rounded-xl hover:bg-green-700 transition text-sm font-semibold shadow-sm"
               >
                 + Nova Conversa
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
               <ChannelList
-                filters={customFilters}
+                filters={filters}
                 sort={sort}
-                options={{ limit: 20 }}
+                options={listOptions}
                 onSelect={(channel) => setActiveChannel(channel)}
-                Preview={(p) => (
-                  <ChannelPreviewItem {...p} client={chatClient} currentUserId={chatClient?.userID} navigate={navigate} onChannelSelect={setActiveChannel} />
+                Preview={(props) => (
+                  <ChannelPreviewItem 
+                    {...props} 
+                    setActiveChannel={(c) => setActiveChannel(c)} 
+                  />
                 )}
               />
             </div>
           </div>
 
-          {/* Channel Messages */}
-          <div className={`${activeChannel ? 'flex' : 'hidden md:flex'} flex-1 bg-white border-l border-gray-200`}>
-            {activeChannel ? (
-              <Channel channel={activeChannel}>
-                <Window>
-                  {/* Header custom seguro + header padrão fold (pode remover ChannelHeader se quiser só o custom) */}
-                  <ChatChannelHeader onChannelDeleted={() => setActiveChannel(null)} onBack={() => setActiveChannel(null)} />
-                  {/* Mantemos ChannelHeader oculto via CSS util se quiser informações extra futuramente */}
-                  <div className="hidden"><ChannelHeader /></div>
-                  <MessageList />
-                  <CustomMessageInput />
-                </Window>
-                <Thread />
-              </Channel>
-            ) : (
-              <div className="flex items-center justify-center h-full bg-gray-50">
-                <div className="text-center p-6">
-                  <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-4xl">💬</span>
-                  </div>
-                  <p className="text-gray-600 text-lg font-medium mb-2">
-                    Seleciona uma conversa
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    ou começa uma nova!
-                  </p>
+          {/* Chat Area */}
+          {activeChannel ? (
+            <div className="flex-1 flex flex-col min-w-0 bg-white">
+              <Chat client={chatClient} theme="messaging light">
+                <Channel channel={activeChannel}>
+                  <Window>
+                    <ChatChannelHeader onBack={() => setActiveChannel(null)} />
+                    <div className="flex-1 relative flex flex-col min-h-0">
+                      <MessageList Message={TranslatedMessage} />
+                    </div>
+                    <CustomMessageInput />
+                  </Window>
+                  <Thread />
+                </Channel>
+              </Chat>
+            </div>
+          ) : (
+            <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50/50">
+              <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">💬</span>
                 </div>
+                <h3 className="text-gray-900 text-lg font-bold">Tuas conversas</h3>
+                <p className="text-gray-500 text-sm mt-1">Seleciona uma conversa para começar.</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
-        {/* Modal de Nova Conversa */}
-        {showNewChatModal && (
-          <NewChatModal
-            onClose={() => setShowNewChatModal(false)}
-            onSelectUser={(channel) => setActiveChannel(channel)}
-          />
-        )}
-
-        {/* Bottom Navigation */}
-        <BottomNav />
       </div>
-    </div >
+      <BottomNav />
+      {showNewChatModal && (
+        <NewChatModal
+          onClose={() => setShowNewChatModal(false)}
+          onSelectUser={(c) => setActiveChannel(c)}
+        />
+      )}
+    </div>
   )
 }

@@ -11,9 +11,9 @@ import { toast } from 'react-hot-toast';
 const IncomingCallNotification = () => {
   const calls = useCalls(); // Hook que retorna TODAS as chamadas ativas/pendentes
 
-  // Filtrar apenas chamadas recebidas que estão tocando (não criadas por mim)
+  // Filtrar apenas chamadas recebidas que estão tocando e que não são salas de reunião (meet)
   const incomingCalls = calls.filter(
-    (call) => !call.isCreatedByMe && call.state.callingState === CallingState.RINGING
+    (call) => !call.isCreatedByMe && call.state.callingState === CallingState.RINGING && call.state.custom?.type !== 'meet'
   );
 
   // Mostrar notificação para cada chamada recebida
@@ -41,8 +41,8 @@ const IncomingCallCard = ({ call }) => {
 
   // Pegar informações do usuário que está chamando
   const caller = participants.find((p) => p.userId !== call.currentUserId);
-  const callerName = caller?.name || caller?.userId || 'Usuário';
-  const callerImage = caller?.image;
+  const callerName = caller?.name || caller?.user?.name || caller?.userId || 'Usuário';
+  const callerImage = caller?.image || caller?.user?.image;
   const callType = customData?.type || 'video'; // 'audio' ou 'video'
   const isVideoCall = callType === 'video';
 

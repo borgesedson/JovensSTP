@@ -2,28 +2,31 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
 import { StreamProvider } from './contexts/StreamContext'
-import { VideoProvider, StreamVideoWrapper } from './contexts/VideoContext'
+import { LanguageProvider } from './contexts/LanguageContext'
 import AppRoutes from './components/AppRoutes'
 import IncomingCallToast from './components/IncomingCallToast'
-import AIAssistantOverlay from './components/AIAssistantOverlay'
+import ChallengePopup from './components/ChallengePopup'
 import ErrorBoundary from './components/ErrorBoundary'
+import { VideoProvider, StreamVideoWrapper } from './contexts/VideoContext'
 
 function App() {
   return (
     <Router>
       <ErrorBoundary>
         <AuthProvider>
-          <StreamProvider>
-            <VideoProvider>
-              <AppRoutes />
-              <AIAssistantOverlay />
-              {/* Incoming call toast (requires StreamVideo context) */}
-              <StreamVideoWrapper>
-                <IncomingCallToast />
-              </StreamVideoWrapper>
-              <Toaster position="top-right" />
-            </VideoProvider>
-          </StreamProvider>
+          <LanguageProvider>
+            <StreamProvider>
+              <VideoProvider>
+                <AppRoutes />
+                {/* Incoming call toast (requires StreamVideo context) */}
+                <StreamVideoWrapper>
+                  <IncomingCallToast />
+                </StreamVideoWrapper>
+                <ChallengePopup />
+                <Toaster position="top-right" />
+              </VideoProvider>
+            </StreamProvider>
+          </LanguageProvider>
         </AuthProvider>
       </ErrorBoundary>
     </Router>

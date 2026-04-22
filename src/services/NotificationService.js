@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
-import { functions } from './firebase'
-import { auth } from './firebase'
+import { functions, db, auth } from './firebase'
+import { collection, doc, writeBatch } from 'firebase/firestore'
 
 class NotificationService {
     static async sendEmail({ recipientIds, type, messageText, senderName }) {
@@ -46,12 +46,32 @@ class NotificationService {
         }
     }
 
-    static async notifyMessage(recipientIds, text) {
-        return this.sendEmail({
-            recipientIds,
-            type: 'message',
-            messageText: text
-        });
+    static async notifyMessage(recipientIds, text, senderName = 'Alguém') {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        // Write to Firestore 'notifications' to trigger the Universal Push (v4_onNotificationCreated)
+        // Eliminámos o envio do Email conforme pedido!
+        try {
+            const batch = writeBatch(db);
+            recipientIds.forEach(id => {
+                if (id !== user.uid) {
+                    const notifRef = doc(collection(db, 'notifications', id, 'items'));
+                    batch.set(notifRef, {
+                        type: 'chat_message',
+                        senderName: senderName || user.displayName || 'Nova Mensagem', // Storing for the backend Push
+                        message: text.substring(0, 150), // Removidas as aspas literais "" e ampliado
+                        link: '/chat',
+                        read: false,
+                        timestamp: new Date()
+                    });
+                }
+            });
+            await batch.commit();
+            console.log('✅ [NotificationService] Push Triggered for chat (via Firestore)!');
+        } catch (dbError) {
+            console.error('❌ [NotificationService] Failed to write in-app DB trigger:', dbError);
+        }
     }
 
     static async notifyStoryCreated(recipientIds, content) {

@@ -1,13 +1,10 @@
 // Public Firebase config for Service Worker usage
-// Replace the placeholders with your actual Firebase web app config values.
-// This file is served statically and used by firebase-messaging-sw.js.
-
+// Used by firebase-messaging-sw.js to receive background push notifications
 self.firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  measurementId: "YOUR_MEASUREMENT_ID"
+  apiKey: "AIzaSyBJIZST0_sX_Z7LXVYgiGKyCG2qFwESJ6g",
+  authDomain: "jovens-stp.firebaseapp.com",
+  projectId: "jovens-stp",
+  storageBucket: "jovens-stp.firebasestorage.app",
+  messagingSenderId: "170205357531",
+  appId: "1:170205357531:web:7dc55bd96f7ce5ef57b3fe"
 }

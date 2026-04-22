@@ -13,6 +13,8 @@ export const BottomNav = () => {
 
   const isActive = (path) => location.pathname === path
 
+  // (Conditional return moved below hooks to avoid violation)
+
   // Navigation items baseado no tipo de usuário (5 itens no total)
   // Jovens: Início | Descobrir (com vagas) | Comunidades | Mensagens | Perfil
   // Empresas: Início | Talentos (com vagas) | Comunidades | Mensagens | Perfil
@@ -50,6 +52,11 @@ export const BottomNav = () => {
   }, [user?.uid])
 
 
+
+  // HIDE BottomNav when a chat channel is open on mobile
+  if (location.pathname === '/chat' && location.state?.chatOpen) {
+    return null
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">

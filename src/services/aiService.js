@@ -1,27 +1,12 @@
 /**
  * aiService.js
  * 
- * Centralized service for AI operations using OpenAI.
- * Migrated to OpenAI as per user request.
+ * Centralized service for AI operations.
+ * Removed OpenAI as per user request.
  * Mentor Name: Sebê-Non
  */
 
-import OpenAI from "openai";
-
-// Initialize OpenAI Client
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 const MENTOR_NAME = import.meta.env.VITE_MENTOR_NAME || "Sebê-Non";
-
-let openai;
-
-if (API_KEY) {
-    openai = new OpenAI({
-        apiKey: API_KEY,
-        dangerouslyAllowBrowser: true // Required for client-side use in Vite
-    });
-} else {
-    console.warn("VITE_OPENAI_API_KEY is missing. AI features will be simulated.");
-}
 
 const MENTOR_PERSONA = `És o "${MENTOR_NAME}" (Nosso Saber), o Mentor Digital Inteligente e Coletivo do JovemSTP. 
 A tua voz é profissional, estratégica e sábia, mas acessível e motivadora.
@@ -59,23 +44,8 @@ class AIService {
     }
 
     static async callModel(prompt, systemPrompt = "", jsonMode = false) {
-        if (!openai) return this.simulateAIResponse(prompt);
-
-        try {
-            const response = await openai.chat.completions.create({
-                model: "gpt-4o-mini", // Cost-effective and powerful
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt }
-                ],
-                response_format: jsonMode ? { type: "json_object" } : { type: "text" }
-            });
-
-            return response.choices[0].message.content;
-        } catch (error) {
-            console.error("[AI Service] OpenAI failed:", error);
-            return this.simulateAIResponse(prompt, error);
-        }
+        // OpenAI was removed. Using simulation/mock logic.
+        return this.simulateAIResponse(prompt);
     }
 
     static async summarize(text, title) {
@@ -86,6 +56,7 @@ class AIService {
     static async chat(userInput, currentContext = "Geral") {
         const snapshot = await this.getAppSnapshot();
         const systemPrompt = MENTOR_PERSONA.replace('{dynamicContext}', snapshot) + `\nContexto: ${currentContext}`;
+        console.log("[AI Service] Chat context:", currentContext);
         return this.callModel(userInput, systemPrompt);
     }
 
@@ -95,10 +66,37 @@ class AIService {
         return this.callModel(prompt, systemPrompt);
     }
 
+    /**
+     * Gera uma dica diária personalizada do mentor Sebê-Non.
+     */
+    static async getDailyMentorTip(user = null) {
+        try {
+            const userName = user?.displayName || user?.name || "Jovem";
+            const prompt = `Olá ${userName}, dá-me a dica do dia.`;
+            return await this.callModel(prompt, "Dica do Dia");
+        } catch (error) {
+            console.error("Erro ao buscar dica do mentor:", error);
+            return "O segredo do progresso é começar. O nosso saber diz: foca-te no que podes controlar hoje!";
+        }
+    }
+
     static simulateAIResponse(prompt, error = null) {
         const name = import.meta.env.VITE_MENTOR_NAME || "Sebê-Non";
         if (error) return `⚠️ Erro: ${error.message}. Modo simulação ativo para ${name}.`;
-        return `O ${name} está a processar a tua ideia... (Modo Simulação)`;
+        
+        // Basic response mapping for simulation
+        const p = prompt.toLowerCase();
+        if (p.includes('olá') || p.includes('bom dia') || p.includes('boa tarde')) {
+            return `Kumé Mé! Eu sou o ${name}. Como posso ajudar-te a transformar o teu saber em sucesso hoje?`;
+        }
+        if (p.includes('vaga') || p.includes('emprego') || p.includes('trabalho')) {
+            return `O nosso saber diz que STP tem muitas oportunidades. Posso levar-te à lista de vagas se quiseres! 💼`;
+        }
+        if (p.includes('curso') || p.includes('estudar') || p.includes('academia')) {
+            return `Aprender é crescer. Recomendo espreitares a nossa Academia para novos cursos e mentorias. 📚`;
+        }
+        
+        return `O ${name} está a processar a tua ideia... O nosso saber coletivo motiva-nos a agir! (Modo Simulação local ativo)`;
     }
 }
 

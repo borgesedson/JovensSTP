@@ -80,20 +80,20 @@ const CallButtons = ({ userId, userName, userImage, className = '' }) => {
         <button
           onClick={handleAudioCall}
           disabled={isConnecting || activeCall}
-          className="flex items-center justify-center w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-green-600 hover:bg-green-700 text-white rounded-full transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
           title={`Ligar para ${userName}`}
         >
-          <Phone className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <Phone className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
         </button>
 
         {/* Botão de chamada de vídeo */}
         <button
           onClick={handleVideoCall}
           disabled={isConnecting || activeCall}
-          className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
           title={`Videochamada com ${userName}`}
         >
-          <Video className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <Video className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
         </button>
       </div>
 

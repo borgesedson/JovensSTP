@@ -11,11 +11,16 @@ service cloud.firestore {
       // Permitir que outros usuários atualizem apenas followers (quando alguém segue você)
       // E você pode atualizar seu próprio following (quando você segue alguém)
       // Também permite atualizar ambos juntos (para conexões bilaterais)
+      // Admins (por email) podem atualizar isAmbassador para promover embaixadores
       allow update: if request.auth != null && (
         request.auth.uid == userId ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers']) ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['following']) ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers', 'following'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers', 'following']) ||
+        (
+          request.auth.token.email == 'borgesedson431@gmail.com' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAmbassador'])
+        )
       );
     }
 
@@ -72,11 +77,15 @@ service cloud.firestore {
 
     // Subcoleção por usuário (path usado pela app): notifications/{userId}/items/{notifId}
     match /notifications/{userId}/items/{notifId} {
-      // Dono pode ler/alterar tudo
       allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      // Qualquer usuário autenticado pode CRIAR uma notificação para outro usuário
-      // (ex.: pedidos de conexão, mensagens). Atualizações e deletes continuam restritos ao dono.
+      // Permitir que qualquer user autenticado crie uma notificação (ex: likes)
+      // O backend também tem permissão total.
       allow create: if request.auth != null;
+    }
+
+    // Coleção dedicada para Tokens FCM
+    match /fcm_tokens/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Notificações em subcoleção (legacy direta): notifications/{userId}/{notifId}
@@ -172,6 +181,27 @@ service cloud.firestore {
       allow read: if true; 
       allow create, update: if request.auth != null; 
       allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
+    // Regras para o Blog (Artigos)
+    match /blog_posts/{postId} {
+      // Qualquer pessoa pode ler (público)
+      allow read: if true;
+      // Só autenticados podem criar. Devem ser o autor.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      // Autor pode atualizar (editar post). Qualquer utilizador autenticado pode dar likes/claps
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.authorId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claps', 'likes'])
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+
+      // Comentários do Blog
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      }
     }
   }
 }

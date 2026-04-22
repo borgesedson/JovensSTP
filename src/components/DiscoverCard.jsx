@@ -1,4 +1,5 @@
 import { User, Briefcase, MapPin, Star, MessageCircle, UserPlus } from 'lucide-react';
+import { AmbassadorBadge } from './AmbassadorBadge';
 import { useNavigate } from 'react-router-dom';
 import { useStreamChat } from '../hooks/useStreamChat';
 import { useState, useEffect } from 'react';
@@ -197,6 +198,7 @@ const DiscoverCard = ({ item, type, onConnect }) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
+              {item.isAmbassador && <AmbassadorBadge size={16} />}
               {item.matchScore >= 70 && (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded-full">
                   <Star className="w-3 h-3 fill-yellow-400 stroke-yellow-400" />
@@ -305,7 +307,10 @@ const DiscoverCard = ({ item, type, onConnect }) => {
             title={`Ver perfil de ${item.name}`}
           />
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
+              {item.isAmbassador && <AmbassadorBadge size={16} />}
+            </div>
             <p className="text-sm text-gray-600 line-clamp-2">{item.bio || 'Empresa'}</p>
             
             {item.location && (

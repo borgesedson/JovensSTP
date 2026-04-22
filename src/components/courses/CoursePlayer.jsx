@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import { X, Play, AlertCircle } from 'lucide-react';
 
 export default function CoursePlayer({ course, onClose }) {
-    // 1. Fail-safe for missing course
-    if (!course) return null;
-
-    // 2. Safe access to lessons
-    const lessons = Array.isArray(course.lessons) ? course.lessons : [];
+    // 1. Normalize data
+    const lessons = Array.isArray(course?.lessons) ? course.lessons : [];
     const hasLessons = lessons.length > 0;
 
-    // 3. State initialization
+    // 2. State initialization
     const [currentLesson, setCurrentLesson] = useState(hasLessons ? lessons[0] : null);
+
+    // 3. Fail-safe for missing course (Move after hooks)
+    if (!course) return null;
 
     // 4. Update currentLesson if course changes
     useEffect(() => {

@@ -6,12 +6,14 @@ import { useAuth } from '../hooks/useAuth'
 import { useStreamChat } from '../hooks/useStreamChat'
 import { db } from '../services/firebase'
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore'
-import { ChevronLeft, Loader, MapPin, Briefcase, GraduationCap, MessageCircle, Calendar, UserPlus, UserCheck, Clock, X, Linkedin, Github, Instagram, Globe } from 'lucide-react'
+import { ChevronLeft, Loader, MapPin, Briefcase, GraduationCap, MessageCircle, Calendar, UserPlus, UserCheck, Clock, X, Linkedin, Github, Instagram, Globe, Shield, ShieldOff } from 'lucide-react'
 import { aggregateFollowerNotification, sendPushNotification } from '../services/notifications'
 import { PostCard } from '../components/PostCard'
 import { VerifiedBadge } from '../components/VerifiedBadge'
+import { AmbassadorBadge } from '../components/AmbassadorBadge'
 import CallButtons from '../components/CallButtons'
 import { formatEducation } from '../utils/formatters'
+import { isAdminEmail } from '../utils/adminConfig'
 import toast from 'react-hot-toast'
 
 export const PublicProfilePage = () => {
@@ -28,6 +30,10 @@ export const PublicProfilePage = () => {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [connectionRequest, setConnectionRequest] = useState(null) // pending, sent, accepted
+  const [ambassadorLoading, setAmbassadorLoading] = useState(false)
+
+  // Admin check: only hardcoded admin emails can promote ambassadors (can't be self-promoted)
+  const isAdmin = isAdminEmail(currentUser?.email)
 
   const isOwnProfile = currentUser?.uid === userId
 
@@ -382,6 +388,44 @@ export const PublicProfilePage = () => {
     }
   }
 
+  // ── Ambassador promote/demote ──
+  const handleToggleAmbassador = async () => {
+    if (!isAdmin || !profileUser) return
+    setAmbassadorLoading(true)
+    try {
+      const newVal = !profileUser.isAmbassador
+      await updateDoc(doc(db, 'users', userId), { isAmbassador: newVal })
+      setProfileUser(prev => ({ ...prev, isAmbassador: newVal }))
+      toast.success(newVal ? '🌟 Promovido(a) a Embaixador(a)!' : 'Embaixador(a) removido(a)')
+
+      // Notify the user about their promotion
+      if (newVal) {
+        try {
+          const notifRef = collection(db, 'notifications', userId, 'items')
+          await addDoc(notifRef, {
+            type: 'ambassador_promoted',
+            message: 'Parabéns! Foste promovido a Embaixador(a) da plataforma JovensSTP! 🌟',
+            read: false,
+            timestamp: new Date(),
+            link: `/profile/${userId}`
+          })
+          sendPushNotification(
+            userId,
+            '🌟 Embaixador(a) JovensSTP!',
+            'Parabéns! Foste promovido a Embaixador(a) da plataforma!'
+          )
+        } catch (e) {
+          console.debug('ambassador notification error', e)
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao alterar embaixador:', error)
+      toast.error('Erro ao alterar status de embaixador(a)')
+    } finally {
+      setAmbassadorLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen pb-24">
@@ -457,10 +501,18 @@ export const PublicProfilePage = () => {
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-2xl font-bold">{profileUserType === 'company' ? (profileUser.company || profileUser.displayName) : profileUser.displayName}</h2>
                 {profileUser.emailVerified && <VerifiedBadge size={20} />}
+                {profileUser.isAmbassador && <AmbassadorBadge size={22} />}
                 {profileUserType === 'young' && profileUser.openToMessages && (
                   <span className="inline-block px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 text-[10px] font-semibold tracking-wide">Aberto a mensagens</span>
                 )}
               </div>
+              {/* Ambassador banner */}
+              {profileUser.isAmbassador && (
+                <div className="mb-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 inline-flex items-center gap-2">
+                  <AmbassadorBadge size={16} />
+                  <span className="text-xs font-semibold text-amber-800">Embaixador(a) Oficial da Plataforma</span>
+                </div>
+              )}
               {profileUser.bio && (
                 <p className="text-gray-600 mb-3">{profileUser.bio}</p>
               )}
@@ -697,6 +749,32 @@ export const PublicProfilePage = () => {
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
               >
                 Editar Perfil
+              </button>
+            )}
+            {/* Admin: Promote/demote ambassador */}
+            {isAdmin && !isOwnProfile && (
+              <button
+                onClick={handleToggleAmbassador}
+                disabled={ambassadorLoading}
+                className={`mt-2 w-full sm:w-auto px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 font-medium text-sm ${
+                  profileUser.isAmbassador
+                    ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                    : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-600 shadow-md'
+                } disabled:opacity-50`}
+              >
+                {ambassadorLoading ? (
+                  <Loader className="animate-spin" size={16} />
+                ) : profileUser.isAmbassador ? (
+                  <>
+                    <ShieldOff size={16} />
+                    Remover Embaixador(a)
+                  </>
+                ) : (
+                  <>
+                    <Shield size={16} />
+                    Promover a Embaixador(a)
+                  </>
+                )}
               </button>
             )}
           </div>

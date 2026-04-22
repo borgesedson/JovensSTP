@@ -13,9 +13,24 @@ import { PostCard } from '../components/PostCard'
 // import { useStreamChat } from '../hooks/useStreamChat'
 import toast from 'react-hot-toast'
 import { EditProfileModal } from '../components/EditProfileModal'
-import { registerForPush } from '../services/notifications'
+import { registerForPush, testPushPing } from '../services/notifications'
 import { generateResume } from '../services/resume'
 import { FileDown } from 'lucide-react'
+import { AmbassadorBadge } from '../components/AmbassadorBadge'
+
+const VerifiedBadge = ({ size = 16, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
+    <circle cx="12" cy="12" r="12" fill="#1a73e8" />
+    <polyline
+      points="7 12 10.5 15.5 17 9"
+      stroke="white"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </svg>
+)
 
 export const ProfilePage = () => {
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -212,6 +227,22 @@ export const ProfilePage = () => {
                   </button>
                   <div className="h-px bg-gray-100" />
                   <button
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      try {
+                        toast.loading('A enviar ping de teste...', { id: 'ping-test' });
+                        await testPushPing();
+                        toast.success('Notificação de teste enviada! Verifica o teu telemóvel.', { id: 'ping-test' });
+                      } catch (err) {
+                        toast.error('Erro ao enviar notificação de teste.', { id: 'ping-test' });
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 inline-flex items-center gap-2"
+                  >
+                    <BellRing size={14} /> Testar Notificações
+                  </button>
+                  <div className="h-px bg-gray-100" />
+                  <button
                     onClick={() => { handleLogout(); setMenuOpen(false) }}
                     className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 inline-flex items-center gap-2"
                   >
@@ -269,6 +300,7 @@ export const ProfilePage = () => {
                   {userType === 'company' ? (user?.company || user?.displayName || 'Empresa') : (user?.displayName || 'Usuário')}
                 </h1>
                 {user?.emailVerified && <VerifiedBadge size={18} className="text-white fill-white flex-shrink-0" />}
+                {user?.isAmbassador && <AmbassadorBadge size={18} />}
                 {userType === 'young' && user?.openToMessages && (
                   <span className="inline-block px-2 py-0.5 rounded-full bg-white/90 text-green-700 text-[10px] font-semibold tracking-wide">Aberto a mensagens</span>
                 )}
@@ -322,6 +354,19 @@ export const ProfilePage = () => {
             </div>
           </div>
         </div>
+
+        {/* Ambassador Card */}
+        {user?.isAmbassador && (
+          <div className="mx-4 mt-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 ring-1 ring-amber-200 shadow-sm p-4">
+            <div className="flex items-center gap-3">
+              <AmbassadorBadge size={28} />
+              <div>
+                <p className="text-sm font-bold text-amber-900">Embaixador(a) Oficial</p>
+                <p className="text-xs text-amber-700">Representas a comunidade JovensSTP como embaixador(a) da plataforma</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Education/Company Section */}
         <div className="px-4 mt-6">

@@ -1,52 +1,44 @@
-# Example schema for simple movie review app
+# JovensSTP Database Schema (PostgreSQL)
 
-# User table is keyed by Firebase Auth UID.
-type User @table {
-  # `@default(expr: "auth.uid")` sets it to Firebase Auth UID during insert and upsert.
-  id: String! @default(expr: "auth.uid")
-  username: String! @col(dataType: "varchar(50)")
-  # The `user: User!` field in the Review table generates the following one-to-many query field.
-  #  reviews_on_user: [Review!]!
-  # The `Review` join table the following many-to-many query field.
-  #  movies_via_Review: [Movie!]!
+# User table synchronized with Firebase Auth
+type User @table(key: "id") {
+  id: String! @default(expr: "auth.uid") # Firebase Auth UID
+  username: String! @col(dataType: "varchar(100)")
+  displayName: String @col(dataType: "varchar(255)")
+  photoURL: String @col(dataType: "varchar(512)")
+  email: String! @col(dataType: "varchar(255)")
+  isMentor: Boolean @default(value: false)
+  isCompany: Boolean @default(value: false)
 }
 
-# Movie is keyed by a randomly generated UUID.
-type Movie @table {
-  # If you do not pass a 'key' to `@table`, Data Connect automatically adds the following 'id' column.
-  # Feel free to uncomment and customize it.
-  #  id: UUID! @default(expr: "uuidV4()")
-  title: String!
-  imageUrl: String!
-  genre: String
+# Meeting table for scheduling JovensSTP Meet sessions
+type Meeting @table {
+  id: UUID! @default(expr: "uuidV4()")
+  title: String! @col(dataType: "varchar(255)")
+  description: String @col(dataType: "text")
+  host: User! # Foreign key to User
+  startTime: Timestamp!
+  endTime: Timestamp
+  callId: String! @col(dataType: "varchar(64)") # The Stream Video call ID
+  status: String! @default(value: "scheduled") # scheduled, live, ended, cancelled
+  createdAt: Timestamp! @default(expr: "request.time")
 }
 
-# MovieMetadata is a metadata attached to a Movie.
-# Movie <-> MovieMetadata is a one-to-one relationship
-type MovieMetadata @table {
-  # @unique ensures each Movie can only one MovieMetadata.
-  movie: Movie! @unique
-  # The movie field adds the following foreign key field. Feel free to uncomment and customize it.
-  #  movieId: UUID!
-  rating: Float
-  releaseYear: Int
-  description: String
-}
-
-# Reviews is a join table between User and Movie.
-# It has a composite primary keys `userUid` and `movieId`.
-# A user can leave reviews for many movies. A movie can have reviews from many users.
-# User  <-> Review is a one-to-many relationship
-# Movie <-> Review is a one-to-many relationship
-# Movie <-> User is a many-to-many relationship
-type Review @table(name: "Reviews", key: ["movie", "user"]) {
+# Participant junction table for many-to-many relationship
+type MeetingParticipant @table(key: ["meeting", "user"]) {
+  meeting: Meeting!
   user: User!
-  # The user field adds the following foreign key field. Feel free to uncomment and customize it.
-  #  userUid: String!
-  movie: Movie!
-  # The movie field adds the following foreign key field. Feel free to uncomment and customize it.
-  #  movieId: UUID!
-  rating: Int
-  reviewText: String
-  reviewDate: Date! @default(expr: "request.time")
+  role: String! @default(value: "guest") # host, speaker, guest
+  joinedAt: Timestamp
+}
+
+# Recording table to store historical data of meeting captures
+type MeetingRecording @table {
+  id: UUID! @default(expr: "uuidV4()")
+  meeting: Meeting!
+  recordedBy: User! # Who initiated the recording
+  streamUrl: String! @col(dataType: "varchar(512)")
+  fileSize: Int @col(dataType: "int")
+  durationSeconds: Int @col(dataType: "int")
+  createdAt: Timestamp! @default(expr: "request.time")
 }

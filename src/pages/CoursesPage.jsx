@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, useContext } from 'react';
 import { VOCATIONAL_TEST, CAREER_RESOURCES, SCHOOL_RESOURCES } from '../services/orientationService';
 import { Guardian } from '../utils/securityUtils';
 import toast from 'react-hot-toast';
@@ -18,6 +18,7 @@ export default function CoursesPage({ isTab = false }) {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
     const [activeSubTab, setActiveSubTab] = useState('courses');
     const [schoolFilter, setSchoolFilter] = useState('all');
     const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -175,14 +176,21 @@ export default function CoursesPage({ isTab = false }) {
         }
     };
 
-    const filteredCourses = filter === 'all'
-        ? courses
-        : courses.filter(c => {
-            if (!c || !c.category) return false;
-            const catName = YouTubeService.getCategoryName(filter);
-            return (catName && c.category.toLowerCase() === catName.toLowerCase()) ||
-                c.category.toLowerCase() === filter.toLowerCase();
-        });
+    const filteredCourses = courses.filter(c => {
+        if (!c) return false;
+        
+        // Filtro por Categoria
+        const catMatch = filter === 'all' || 
+            (YouTubeService.getCategoryName(filter) && c.category?.toLowerCase() === YouTubeService.getCategoryName(filter).toLowerCase()) ||
+            c.category?.toLowerCase() === filter.toLowerCase();
+
+        // Filtro por Busca (Nome ou Descrição)
+        const searchMatch = !searchQuery.trim() || 
+            (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (c.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+        return catMatch && searchMatch;
+    });
 
     if (loading) {
         return (
@@ -232,7 +240,19 @@ export default function CoursesPage({ isTab = false }) {
             {
                 activeSubTab === 'courses' && (
                     <div className="animate-in fade-in duration-500">
-                        <div className="flex items-center gap-4 mb-6">
+                        <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
+                            <div className="relative flex-1 w-full">
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Pesquisar cursos instantaneamente..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-4 focus:ring-green-100 focus:border-green-500 outline-none transition-all font-medium text-sm"
+                                />
+                                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                                    <Zap size={16} fill="currentColor" className="text-yellow-400" />
+                                </div>
+                            </div>
                             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1 min-w-0 mask-gradient-right px-1">
                                 {[
                                     { id: 'all', label: 'Todos' },

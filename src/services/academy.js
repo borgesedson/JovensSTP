@@ -42,3 +42,20 @@ export const addAcademyContent = async (contentData) => {
         return { success: false, error };
     }
 };
+export const getAcademyCategories = async () => {
+    try {
+        const ref = collection(db, ACADEMY_COLLECTION);
+        const snap = await getDocs(ref);
+        const categories = new Set();
+        snap.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.category) {
+                categories.add(data.category);
+            }
+        });
+        return Array.from(categories).sort();
+    } catch (error) {
+        console.error('Error fetching academy categories:', error);
+        return [];
+    }
+};

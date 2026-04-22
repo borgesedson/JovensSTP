@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback, useContext, useRef } from 'react'
 import { useStreamChat } from '../hooks/useStreamChat'
 import { useAuth } from '../hooks/useAuth'
 import { Users, MessageCircle, Loader, Search, X, BookOpen, ExternalLink, FileText, CheckCircle2 } from 'lucide-react'
@@ -162,16 +162,17 @@ export const CommunitiesPage = () => {
 
   const isMember = (community) => community?.members?.includes?.(user?.uid)
 
-  // Filtrar comunidades pela busca
-  const filteredCommunities = communities.filter(community => {
-    if (!searchQuery.trim()) return true
+  // Filtrar comunidades pela busca (Otimizado com useMemo)
+  const filteredCommunities = useMemo(() => {
+    if (!searchQuery.trim()) return communities
 
     const query = searchQuery.toLowerCase()
-    const name = community.name?.toLowerCase() || ''
-    const description = community.description?.toLowerCase() || ''
-
-    return name.includes(query) || description.includes(query)
-  })
+    return communities.filter(community => {
+      const name = community.name?.toLowerCase() || ''
+      const description = community.description?.toLowerCase() || ''
+      return name.includes(query) || description.includes(query)
+    })
+  }, [communities, searchQuery])
 
   const handleJoinCommunity = async (community) => {
     setJoiningCommunity(community.id)

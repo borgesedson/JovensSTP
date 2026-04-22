@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../hooks/useAuth'
 import toast from 'react-hot-toast'
@@ -7,6 +7,8 @@ import toast from 'react-hot-toast'
 export const SignupPage = () => {
   const navigate = useNavigate()
   const { signup } = useAuth()
+  const location = useLocation()
+  const from = location.state?.from || '/home'
   const { register, handleSubmit, formState: { errors }, watch, control } = useForm()
   const [experiences, setExperiences] = useState([{ company: '', role: '', startYear: '', endYear: '', description: '' }])
   const [educations, setEducations] = useState([{ institution: '', degree: '', startYear: '', endYear: '' }])
@@ -47,7 +49,7 @@ export const SignupPage = () => {
 
       await signup(data.email, data.password, profileData, userType)
       toast.success('Cadastro realizado com sucesso!')
-      navigate('/')
+      navigate(from, { replace: true })
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -378,7 +380,7 @@ export const SignupPage = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Já tem conta?{' '}
-            <Link to="/login" className="text-green-600 font-medium hover:underline">
+            <Link to="/login" state={location.state} className="text-green-600 font-medium hover:underline">
               Faça login
             </Link>
           </p>

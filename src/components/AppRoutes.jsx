@@ -23,9 +23,67 @@ import { ResetPasswordPage } from '../pages/ResetPasswordPage'
 import DiscoverPage from '../pages/DiscoverPage'
 import TalentsPage from '../pages/TalentsPage'
 import CoursesPage from '../pages/CoursesPage'
+import MeetingPage from '../pages/MeetingPage'
+import { useLocation } from 'react-router-dom'
+import { BlogPage } from '../pages/BlogPage'
+import { BlogEditor } from '../pages/BlogEditor'
+import { BlogPostDetail } from '../pages/BlogPostDetail'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+
+const VersionSentinel = () => {
+    useEffect(() => {
+        const checkVersion = async () => {
+            try {
+                // Fetch version.json without cache
+                const response = await fetch('/version.json?t=' + Date.now());
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const currentVersion = localStorage.getItem('app_version');
+                
+                if (currentVersion && currentVersion !== data.version) {
+                    localStorage.setItem('app_version', data.version);
+                    toast.loading('A atualizar plataforma...', { duration: 2000 });
+                    setTimeout(() => window.location.reload(), 1500);
+                } else if (!currentVersion) {
+                    localStorage.setItem('app_version', data.version);
+                }
+            } catch (e) {
+                // Silently fail if network is down or file not found
+            }
+        };
+
+        // Check every 5 minutes
+        const interval = setInterval(checkVersion, 5 * 60 * 1000);
+        // Initial check on load
+        setTimeout(checkVersion, 2000);
+        
+        return () => clearInterval(interval);
+    }, []);
+    return null;
+}
 
 const AppRoutes = () => {
     const { user, loading } = useAuth()
+    const location = useLocation()
+    const navigate = useNavigate()
+
+    const params = new URLSearchParams(location.search);
+    const fromSeoId = params.get('from_seo');
+
+    useEffect(() => {
+        console.log('🔍 AppRoutes: Search params:', location.search);
+        if (fromSeoId) {
+            console.log('🚀 AppRoutes: SEO REDIRECT DETECTADO! Indo para o post:', fromSeoId);
+            navigate(`/blog/${fromSeoId}`, { replace: true });
+        }
+    }, [fromSeoId, navigate]);
+    
+    // Exclude Header/BottomNav from full-screen experiences like Meet and Editor
+    const isMeetingPage = location.pathname.startsWith('/meet/')
+    const isEditingBlog = location.pathname === '/blog/create'
 
     if (loading) {
         return (
@@ -40,30 +98,43 @@ const AppRoutes = () => {
 
     return (
         <>
-            {/* Global Header always on top when authenticated */}
-            {user && <Header />}
-
+            <VersionSentinel />
+            {/* Global Header always on top when authenticated (except on meeting page or editor) */}
+            {user && !isMeetingPage && !isEditingBlog && <Header />}
+ 
             {/* Email Verification Banner */}
-            {user && !user.emailVerified && <EmailVerificationBanner />}
+            {user && !user.emailVerified && !isMeetingPage && <EmailVerificationBanner />}
 
             {/* Notification Permission Prompt */}
             {user && <NotificationPermissionPrompt />}
 
-            {/* Main content area with padding to avoid overlap with header and bottom nav */}
-            <main className="pb-20">
+            {/* Main content area */}
+            <main className={isMeetingPage ? "" : "pb-20"}>
                 <Routes>
                     {/* Public Routes */}
                     <Route
                         path="/"
-                        element={user ? <Navigate to="/home" replace /> : <LandingPage />}
+                        element={
+                            fromSeoId ? (
+                                <Navigate to={`/blog/${fromSeoId}`} replace />
+                            ) : user ? (
+                                <Navigate 
+                                    to={location.state?.from || "/home"} 
+                                    replace 
+                                    state={{ from: location.pathname, search: location.search }} 
+                                />
+                            ) : (
+                                <LandingPage />
+                            )
+                        }
                     />
                     <Route
                         path="/login"
-                        element={user ? <Navigate to="/home" replace /> : <LoginPage />}
+                        element={user ? <Navigate to={location.state?.from || "/home"} replace /> : <LoginPage />}
                     />
                     <Route
                         path="/signup"
-                        element={user ? <Navigate to="/home" replace /> : <SignupPage />}
+                        element={user ? <Navigate to={location.state?.from || "/home"} replace /> : <SignupPage />}
                     />
                     <Route
                         path="/reset-password"
@@ -103,6 +174,21 @@ const AppRoutes = () => {
                         path="/discover"
                         element={<ProtectedRoute element={<DiscoverPage />} />}
                     />
+                    
+                    {/* Blog Routes */}
+                    <Route
+                        path="/blog"
+                        element={<BlogPage />}
+                    />
+                    <Route
+                        path="/blog/create"
+                        element={<ProtectedRoute element={<BlogEditor />} />}
+                    />
+                    <Route
+                        path="/blog/:id"
+                        element={<BlogPostDetail />}
+                    />
+                    
                     <Route
                         path="/talents"
                         element={<ProtectedRoute element={<TalentsPage />} />}
@@ -110,6 +196,10 @@ const AppRoutes = () => {
                     <Route
                         path="/courses"
                         element={<ProtectedRoute element={<CoursesPage />} />}
+                    />
+                    <Route
+                        path="/meet/:callId"
+                        element={<ProtectedRoute element={<MeetingPage />} />}
                     />
 
                     {/* Legal Pages - Public */}
@@ -121,8 +211,8 @@ const AppRoutes = () => {
                 </Routes>
             </main>
 
-            {/* Bottom navigation fixed at bottom when authenticated */}
-            {user && <BottomNav />}
+            {/* Bottom navigation fixed at bottom when authenticated (except on meeting page) */}
+            {user && !isMeetingPage && <BottomNav />}
         </>
     )
 }

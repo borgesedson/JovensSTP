@@ -10,12 +10,21 @@ import { OnboardingModal } from '../components/OnboardingModal'
 import { useAuth } from '../hooks/useAuth'
 import { getDailySuggestions } from '../services/matching'
 import DiscoverCard from '../components/DiscoverCard'
-import { Sparkles, X, Compass, Zap } from 'lucide-react'
-import AIService from '../services/aiService'
+import { Sparkles, X, Compass, Zap, Video, Share2 } from 'lucide-react'
+import ChallengeCard from '../components/ChallengeCard'
+// import '../styles/home.css'
+// import AIService from '../services/aiService'
+import { getFunctions, httpsCallable } from 'firebase/functions'
+import { functions } from '../services/firebase'
+import { useVideo } from '../contexts/VideoContext'
+import { toast } from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 // import { Loader } from 'lucide-react'
 
 export const HomePage = () => {
   const { user } = useAuth()
+  const { createMeeting } = useVideo()
+  const navigate = useNavigate()
   const [posts, setPosts] = useState([])
   const [stories, setStories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -32,9 +41,28 @@ export const HomePage = () => {
   const [dailySuggestions, setDailySuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(true)
   const [loadingSuggestions, setLoadingSuggestions] = useState(true)
-  const [mentorTip, setMentorTip] = useState('')
-  const [loadingTip, setLoadingTip] = useState(true)
-  const [showMentorTip, setShowMentorTip] = useState(true)
+  // const [mentorTip, setMentorTip] = useState('')
+  // const [loadingTip, setLoadingTip] = useState(true)
+  // const [showMentorTip, setShowMentorTip] = useState(true)
+  const [isCreatingMeet, setIsCreatingMeet] = useState(false)
+
+  const handleCreateMeet = async () => {
+    if (isCreatingMeet) return
+    setIsCreatingMeet(true)
+    const toastId = toast.loading('Preparando sua sala...')
+    try {
+      const callId = await createMeeting(`Encontro de ${user.displayName || 'Utilizador'}`)
+      if (callId) {
+        toast.success('Sala pronta! Entrando...', { id: toastId })
+        navigate(`/meet/${callId}`)
+      }
+    } catch (error) {
+       console.error('Erro ao criar Meet na Home:', error)
+       toast.error('Gola ao criar sala.', { id: toastId })
+    } finally {
+      setIsCreatingMeet(false)
+    }
+  }
 
   // Check if first visit
   useEffect(() => {
@@ -64,6 +92,7 @@ export const HomePage = () => {
   }, [user])
 
   // Load Mentor Tip
+  /*
   useEffect(() => {
     if (!user) return
     const fetchTip = async () => {
@@ -77,6 +106,23 @@ export const HomePage = () => {
       }
     }
     fetchTip()
+  }, [user])
+  */
+
+  // FINAL FIX: Sincronização em massa (Executa apenas uma vez por sessão)
+  useEffect(() => {
+    if (!user) return
+    const isSynced = sessionStorage.getItem('v4_stream_all_synced')
+    if (!isSynced) {
+      console.log('🔄 Iniciando sincronização global Auth -> Stream...')
+      const syncCall = httpsCallable(functions, 'v4_syncAllUsersToStream')
+      syncCall({}).then(r => {
+        console.log('✅ Sync completo:', r.data)
+        sessionStorage.setItem('v4_stream_all_synced', 'true')
+      }).catch(err => {
+        console.warn('⚠️ Falha na sincronização global (não crítico):', err)
+      })
+    }
   }, [user])
 
   const handleOnboardingClose = () => {
@@ -225,33 +271,23 @@ export const HomePage = () => {
       return true
     })
     .sort((a, b) => {
-      // PRIORIDADE: Posts de empresa sempre no topo
-      const aIsCompany = a.type === 'company' ? 1 : 0;
-      const bIsCompany = b.type === 'company' ? 1 : 0;
-      if (aIsCompany !== bIsCompany) return bIsCompany - aIsCompany;
-
-      // Tier 1: Mutual connections first
-      const aIsMutual = connectionSet.has(a.authorId) ? 1 : 0;
-      const bIsMutual = connectionSet.has(b.authorId) ? 1 : 0;
-      if (aIsMutual !== bIsMutual) return bIsMutual - aIsMutual;
-
-      // Tier 2: Following-only (includes companies followed)
-      const aIsFollowing = followingSet.has(a.authorId) ? 1 : 0;
-      const bIsFollowing = followingSet.has(b.authorId) ? 1 : 0;
-      if (aIsFollowing !== bIsFollowing) return bIsFollowing - aIsFollowing;
-
-      // Pinned/promoted next
-      const aPin = a.pinned || a.promoted ? 1 : 0;
-      const bPin = b.pinned || b.promoted ? 1 : 0;
-      if (aPin !== bPin) return bPin - aPin;
-
       if (sortMode === 'popular') {
+        // When popular, put companies and connections on top to prioritize engagement, 
+        // then sort by likes.
+        const aIsCompany = a.type === 'company' ? 1 : 0;
+        const bIsCompany = b.type === 'company' ? 1 : 0;
+        if (aIsCompany !== bIsCompany) return bIsCompany - aIsCompany;
+        
+        const aIsMutual = connectionSet.has(a.authorId) ? 1 : 0;
+        const bIsMutual = connectionSet.has(b.authorId) ? 1 : 0;
+        if (aIsMutual !== bIsMutual) return bIsMutual - aIsMutual;
+
         const aLikes = (a.likes || []).length;
         const bLikes = (b.likes || []).length;
         if (aLikes !== bLikes) return bLikes - aLikes;
       }
 
-      // Default by timestamp desc
+      // Default by timestamp desc (Recent Mode -> STRICT CHRONOLOGICAL)
       const aTime = a.timestamp?.toMillis?.() ?? 0;
       const bTime = b.timestamp?.toMillis?.() ?? 0;
       return bTime - aTime;
@@ -340,44 +376,23 @@ export const HomePage = () => {
           </div>
         </div>
 
-        {/* Mentor Proactive Tip */}
-        {showMentorTip && !loadingTip && mentorTip && (
-          <div className="px-2 sm:px-4 mb-2">
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-4 text-white shadow-xl relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 opacity-10 group-hover:scale-110 transition-transform">
-                <Compass size={120} />
+        {/* Quick Meeting Action Card */}
+        <div className="px-2 sm:px-4 mb-3">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-green-100 flex items-center justify-between group hover:border-green-300 transition-colors cursor-pointer" onClick={handleCreateMeet}>
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 p-3 rounded-xl text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all">
+                <Video size={24} />
               </div>
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-md">
-                      <Zap size={18} className="text-white" />
-                    </div>
-                    <span className="text-xs font-black uppercase tracking-widest">Sebê-Non</span>
-                  </div>
-                  <button
-                    onClick={() => setShowMentorTip(false)}
-                    className="p-1 hover:bg-white/10 rounded-full transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-
-                <p className="text-sm font-medium leading-relaxed italic">
-                  "{mentorTip}"
-                </p>
-
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="h-1 w-12 bg-white/30 rounded-full overflow-hidden">
-                    <div className="h-full bg-white w-2/3 animate-pulse"></div>
-                  </div>
-                  <span className="text-[10px] font-bold opacity-70">SABER MAIS</span>
-                </div>
+              <div>
+                <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">Nova Reunião</h3>
+                <p className="text-xs text-gray-500">Começa um Meet agora e convida os teus colegas.</p>
               </div>
             </div>
+            <div className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${isCreatingMeet ? 'bg-gray-100 text-gray-400' : 'bg-green-600 text-white hover:bg-green-700 shadow-md active:scale-95'}`}>
+              {isCreatingMeet ? 'Criando...' : 'INICIAR'}
+            </div>
           </div>
-        )}
+        </div>
 
         {/* Create Post Form (hidden in Jobs filter) */}
         {filterType !== 'jobs' && (

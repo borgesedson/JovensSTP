@@ -1,10 +1,13 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { StreamVideo, StreamVideoClient } from '@stream-io/video-react-sdk';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { db, functions } from '../services/firebase';
+import { httpsCallable } from 'firebase/functions';
+
+// Import Stream Video Styles
+import '@stream-io/video-react-sdk/dist/css/styles.css';
 
 export const VideoContext = createContext();
 
@@ -14,34 +17,6 @@ export const VideoProvider = ({ children }) => {
   const { user } = useAuth();
   const [videoClient, setVideoClient] = useState(null);
   const [isInitializing, setIsInitializing] = useState(false);
-
-  // Função para inicializar o cliente de vídeo
-  const initializeVideoClient = useCallback(async () => {
-    if (!user || videoClient) return;
-
-    setIsInitializing(true);
-    try {
-      // Gerar token temporário (em produção, deve vir do backend)
-      const token = await generateUserToken(user.uid);
-
-      const client = StreamVideoClient.getOrCreateInstance({
-        apiKey: STREAM_VIDEO_API_KEY,
-        user: {
-          id: user.uid,
-          name: user.displayName || user.email,
-          image: user.photoURL
-        },
-        token
-      });
-
-      setVideoClient(client);
-    } catch (error) {
-      console.error('Erro ao inicializar cliente de vídeo:', error);
-      toast.error('Erro ao inicializar sistema de chamadas');
-    } finally {
-      setIsInitializing(false);
-    }
-  }, [user, videoClient]);
 
   // Função helper para buscar dados do usuário
   const getUserData = async (userId) => {
@@ -57,30 +32,61 @@ export const VideoProvider = ({ children }) => {
     }
   };
 
-  // Função para gerar token
+  // Função para gerar token via Cloud Function
   const generateUserToken = async (userId) => {
-    // Sempre tentar usar Firebase Functions (que agora está deployada)
     try {
-      const { httpsCallable } = await import('firebase/functions');
-      const { functions } = await import('../services/firebase');
-
-      // Attempting v3 name first, then original name
-      let createToken;
-      try {
-        createToken = httpsCallable(functions, 'v4_createVideoToken');
-      } catch (e) {
-        createToken = httpsCallable(functions, 'createStreamVideoToken');
-      }
-
+      const createToken = httpsCallable(functions, 'v4_createVideoToken');
       console.log('🎥 Gerando token de vídeo para:', userId);
       const result = await createToken({ userId });
-      return result.data.token;
+
+      if (result.data && result.data.token) {
+        return result.data.token;
+      } else {
+        throw new Error('Função retornou formato de dado inesperado');
+      }
     } catch (error) {
-      console.warn('⚠️ Erro ao gerar token via Backend, usando MOCK para testes locais:', error);
-      // Return a dummy token to allow UI testing without a functional backend
-      return 'dev_token_mock_' + userId;
+      console.error('❌ Falha ao gerar token de vídeo:', error.message);
+
+      if (error.code === 'not-found') {
+        console.error('❌ Cloud Function "v4_createVideoToken" não foi encontrada. Verifique o deploy.');
+      } else if (error.code === 'permission-denied') {
+        console.error('❌ Permissão negada. Verifique as regras de App Check/CORS.');
+      }
+
+      throw error;
     }
   };
+
+  // Função para inicializar o cliente de vídeo
+  const initializeVideoClient = useCallback(async () => {
+    if (!user || videoClient) return;
+
+    setIsInitializing(true);
+    try {
+      // Gerar token real via Cloud Function
+      const token = await generateUserToken(user.uid);
+
+      const client = StreamVideoClient.getOrCreateInstance({
+        apiKey: STREAM_VIDEO_API_KEY,
+        user: {
+          id: user.uid,
+          name: user.displayName || user.email,
+          image: user.photoURL
+        },
+        token,
+        // tokenProvider: re-fetch token quando expirar
+        tokenProvider: () => generateUserToken(user.uid),
+      });
+
+      setVideoClient(client);
+    } catch (error) {
+      console.error('Erro ao inicializar cliente de vídeo:', error);
+      toast.error('Erro ao conectar sistema de vídeo. Verifique a tua conexão.');
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [user, videoClient]);
+
 
   // Função para criar chamada de áudio
   const createAudioCall = async (targetUserId) => {
@@ -92,8 +98,6 @@ export const VideoProvider = ({ children }) => {
     try {
       // ✅ NOVO: Garantir que o outro usuário existe no Stream antes de criar chamada
       try {
-        const { httpsCallable } = await import('firebase/functions');
-        const { functions } = await import('../services/firebase');
         const ensureUserFn = httpsCallable(functions, 'v4_ensureStreamUsers');
         await ensureUserFn({ userIds: [targetUserId] });
         console.log('✅ Usuário alvo sincronizado/verificado no Stream para Chamada:', targetUserId);
@@ -129,7 +133,9 @@ export const VideoProvider = ({ children }) => {
         },
         settings_override: {
           ring: {
-            auto_cancel_timeout_ms: 300000 // 5 minutos
+            auto_cancel_timeout_ms: 60000,        // 1 minuto
+            incoming_call_timeout_ms: 30000,       // 30 segundos para aceitar
+            missed_call_timeout_ms: 60000          // 1 minuto
           }
         }
       });
@@ -146,7 +152,7 @@ export const VideoProvider = ({ children }) => {
         const { getFunctions, httpsCallable } = await import('firebase/functions');
         const { app } = await import('../services/firebase');
         const functions = getFunctions(app);
-        const sendCallNotification = httpsCallable(functions, 'sendCallNotification');
+        const sendCallNotification = httpsCallable(functions, 'v4_sendCallNotification');
 
         sendCallNotification({
           targetUserId: targetUserId,
@@ -214,7 +220,9 @@ export const VideoProvider = ({ children }) => {
         },
         settings_override: {
           ring: {
-            auto_cancel_timeout_ms: 300000 // 5 minutos
+            auto_cancel_timeout_ms: 60000,        // 1 minuto
+            incoming_call_timeout_ms: 30000,       // 30 segundos para aceitar
+            missed_call_timeout_ms: 60000          // 1 minuto
           }
         }
       });
@@ -224,10 +232,7 @@ export const VideoProvider = ({ children }) => {
 
       // Enviar notificação push para o outro usuário (opcional - não bloqueia se falhar)
       try {
-        const { getFunctions, httpsCallable } = await import('firebase/functions');
-        const { app } = await import('../services/firebase');
-        const functions = getFunctions(app);
-        const sendCallNotification = httpsCallable(functions, 'sendCallNotification');
+        const sendCallNotification = httpsCallable(functions, 'v4_notifyIncomingCall');
 
         sendCallNotification({
           targetUserId: targetUserId,
@@ -275,6 +280,109 @@ export const VideoProvider = ({ children }) => {
     }
   };
 
+  // --- NOVAS FUNÇÕES PARA O MEET (CONFERÊNCIA) ---
+
+  // Função para iniciar gravação
+  const startRecording = async (callOrCallId) => {
+    try {
+      let call = callOrCallId;
+      if (typeof callOrCallId === 'string' && videoClient) {
+        call = videoClient.call('default', callOrCallId);
+      }
+      
+      if (call && typeof call.startRecording === 'function') {
+        await call.startRecording();
+        toast.success('Gravação iniciada');
+      } else {
+        throw new Error('Objeto Call inválido para gravação');
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar gravação:', error);
+      toast.error('Falha ao iniciar gravação. Verifique as permissões.');
+    }
+  };
+
+  // Função para parar gravação
+  const stopRecording = async (callOrCallId) => {
+    try {
+      let call = callOrCallId;
+      if (typeof callOrCallId === 'string' && videoClient) {
+        call = videoClient.call('default', callOrCallId);
+      }
+
+      if (call && typeof call.stopRecording === 'function') {
+        await call.stopRecording();
+        toast.success('Gravação interrompida');
+      }
+    } catch (error) {
+      console.error('Erro ao parar gravação:', error);
+    }
+  };
+
+  // Função para listar gravações de uma chamada
+  const getRecordings = async (callId) => {
+    if (!videoClient) return [];
+    try {
+      const call = videoClient.call('default', callId);
+      const response = await call.queryRecordings();
+      return response.recordings || [];
+    } catch (error) {
+      console.error('Erro ao buscar gravações:', error);
+      return [];
+    }
+  };
+
+  // Função para criar uma reunião formal (Google Meet-like)
+  const createMeeting = async (title = 'Nova Reunião', description = '') => {
+    if (!videoClient || !user) {
+      toast.error('Sistema não inicializado ou usuário não logado');
+      return null;
+    }
+
+    try {
+      // 1. Criar ID da chamada
+      const timestamp = Date.now().toString(36);
+      const callId = `meet-${timestamp}`;
+      
+      // 2. Persistir a reunião no Firestore via Cloud Function
+      try {
+        const createMeetingFn = httpsCallable(functions, 'v4_createMeeting');
+        await createMeetingFn({
+          callId,
+          title,
+          description,
+          startTime: new Date().toISOString()
+        });
+        console.log('✅ Reunião registada no Firestore com sucesso!');
+      } catch (dbErr) {
+        console.warn('⚠️ Falha ao salvar reunião na VPS (Prosseguindo com a chamada):', dbErr);
+      }
+
+      // 3. Criar sala no Stream Video
+      const call = videoClient.call('default', callId);
+      await call.getOrCreate({
+        ring: false,
+        notify: false,
+        data: {
+          members: [{ user_id: user.uid }],
+          custom: {
+            title,
+            description,
+            type: 'meet',
+            hostId: user.uid
+          }
+        }
+      });
+
+      toast.success('Reunião criada com sucesso!');
+      return callId;
+    } catch (error) {
+      console.error('Erro ao criar reunião:', error);
+      toast.error('Erro ao iniciar reunião');
+      throw error;
+    }
+  };
+
   // Inicializar cliente quando usuário estiver autenticado
   useEffect(() => {
     if (user && !videoClient && !isInitializing) {
@@ -290,15 +398,31 @@ export const VideoProvider = ({ children }) => {
     }
   }, [user, videoClient]);
 
-  const value = {
+  const value = useMemo(() => ({
     videoClient,
     isInitializing,
     createAudioCall,
     createVideoCall,
     joinCall,
     endCall,
+    startRecording,
+    stopRecording,
+    getRecordings,
+    createMeeting,
     initializeVideoClient
-  };
+  }), [
+    videoClient,
+    isInitializing,
+    createAudioCall,
+    createVideoCall,
+    joinCall,
+    endCall,
+    startRecording,
+    stopRecording,
+    getRecordings,
+    createMeeting,
+    initializeVideoClient
+  ]);
 
   // Sempre que houver um cliente ativo, manter <StreamVideo> ao redor dos children
   // Isso evita race ao fazer logout (quando user fica null antes do client ser desmontado)
@@ -329,7 +453,16 @@ export const VideoProvider = ({ children }) => {
   );
 };
 
-// Wrapper para componentes que precisam estar dentro de <StreamVideo>
+// HOOK
+export const useVideo = () => {
+  const context = useContext(VideoContext);
+  if (!context) {
+    throw new Error('useVideo must be used within VideoProvider');
+  }
+  return context;
+};
+
+// Wrapper para componentes que precisam estar dentro de <StreamVideo> (Incoming Call, etc)
 export const StreamVideoWrapper = ({ children }) => {
   const { videoClient } = useVideo();
 
@@ -337,12 +470,4 @@ export const StreamVideoWrapper = ({ children }) => {
   if (!videoClient) return null;
 
   return <>{children}</>;
-};
-
-export const useVideo = () => {
-  const context = useContext(VideoContext);
-  if (!context) {
-    throw new Error('useVideo must be used within VideoProvider');
-  }
-  return context;
 };

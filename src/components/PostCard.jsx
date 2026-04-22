@@ -10,6 +10,7 @@ import { EditPostModal } from './EditPostModal'
 
 import { CommentsSection } from './CommentsSection'
 import MediaViewerModal from './MediaViewerModal'
+import { AmbassadorBadge } from './AmbassadorBadge'
 
 // Extrai YouTube video ID de uma URL
 const extractYouTubeId = (url) => {
@@ -74,6 +75,23 @@ export const PostCard = ({ post, onDelete, onEdit }) => {
   const [mediaModal, setMediaModal] = useState({ open: false, src: '', type: 'image' })
   // Estado para repost
   const [originalPost, setOriginalPost] = useState(null)
+  // Ambassador status do autor
+  const [authorIsAmbassador, setAuthorIsAmbassador] = useState(false)
+
+  // Buscar status de embaixador do autor
+  useEffect(() => {
+    if (!post?.authorId) return
+    const fetchAmbassador = async () => {
+      try {
+        const { getDoc } = await import('firebase/firestore')
+        const snap = await getDoc(doc(db, 'users', post.authorId))
+        if (snap.exists() && snap.data().isAmbassador) {
+          setAuthorIsAmbassador(true)
+        }
+      } catch { /* ignore */ }
+    }
+    fetchAmbassador()
+  }, [post?.authorId])
 
   // Buscar dados do post original se for repost
   useEffect(() => {
@@ -226,7 +244,10 @@ export const PostCard = ({ post, onDelete, onEdit }) => {
               </div>
             )}
             <div>
-              <p className="font-semibold text-gray-900 hover:text-green-600 transition">{post.authorName || 'Usuário'}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-semibold text-gray-900 hover:text-green-600 transition">{post.authorName || 'Usuário'}</p>
+                {authorIsAmbassador && <AmbassadorBadge size={15} />}
+              </div>
               <p className="text-xs text-gray-500">{timeAgo}</p>
             </div>
           </div>

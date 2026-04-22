@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, useContext } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useChannelStateContext, useChatContext } from 'stream-chat-react'
@@ -10,6 +10,7 @@ import { app } from '../services/firebase'
 import { db } from '../services/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import CallButtons from './CallButtons'
+import { useLanguage } from '../contexts/LanguageContext'
 
 /*
   ChatChannelHeader: header seguro que não interfere com MessageList.
@@ -105,26 +106,39 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
     }
   }, [channel, client, otherUserId])
 
-  // Fallback: se for comunidade e não houver name no Stream, buscar do Firestore
+  // Fallback: buscar informações atualizadas do Firestore quando Stream tiver dados genéricos (como "Usuário") ou vazios
   useEffect(() => {
-    const fetchCommunityMeta = async () => {
+    const fetchMeta = async () => {
       if (!channel) return
       const id = channel.id || ''
-      if (!id.startsWith('community-')) return
-      const hasName = Boolean(channel.data?.name)
-      if (hasName) return
-      try {
-        const communityId = id.replace('community-', '')
-        const snap = await getDoc(doc(db, 'communities', communityId))
-        const data = snap.exists() ? snap.data() : null
-        if (data?.name) setOverrideTitle(String(data.name))
-        if (data?.imageUrl) setOverrideImage(String(data.imageUrl))
-      } catch (err) {
-        void err
+
+      if (id.startsWith('community-')) {
+        const hasName = Boolean(channel.data?.name)
+        if (hasName) return
+        try {
+          const communityId = id.replace('community-', '')
+          const snap = await getDoc(doc(db, 'communities', communityId))
+          const data = snap.exists() ? snap.data() : null
+          if (data?.name) setOverrideTitle(String(data.name))
+          if (data?.imageUrl) setOverrideImage(String(data.imageUrl))
+        } catch (err) {
+          void err
+        }
+      } else if (otherUserId) {
+        try {
+          const snap = await getDoc(doc(db, 'users', otherUserId))
+          const data = snap.exists() ? snap.data() : null
+          const dbTitle = data?.displayName || data?.name || null
+          const dbImage = data?.photoURL || data?.avatarUrl || null
+          if (dbTitle) setOverrideTitle(dbTitle)
+          if (dbImage) setOverrideImage(dbImage)
+        } catch (err) {
+          void err
+        }
       }
     }
-    fetchCommunityMeta()
-  }, [channel])
+    fetchMeta()
+  }, [channel, otherUserId])
 
   const canHardDelete = useMemo(() => {
     if (!channel || !isDM) return false
@@ -212,6 +226,8 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
     }
   }
 
+  const { preferredLanguage, changeLanguage, languages } = useLanguage()
+
   const handleAvatarClick = () => {
     if (otherUserId) {
       navigate(`/profile/${otherUserId}`)
@@ -221,11 +237,11 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
   }
 
   return (
-    <div className="relative border-b border-gray-200 px-4 py-3 flex items-center gap-3">
+    <div className="relative border-b border-gray-200 px-2 sm:px-4 py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-3 bg-white">
       {onBack && (
         <button
           onClick={onBack}
-          className="md:hidden p-2 -ml-2 mr-1 rounded-md hover:bg-gray-100 text-gray-600"
+          className="md:hidden p-2 -ml-2 mr-1 rounded-md hover:bg-gray-100 text-gray-600 flex-shrink-0"
           aria-label="Voltar para lista"
         >
           <ChevronLeft size={20} />
@@ -237,16 +253,16 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
         disabled={!otherUserId && !communityId}
       >
         {(overrideImage || image) ? (
-          <img src={overrideImage || image} alt={overrideTitle || title} className="w-10 h-10 rounded-full object-cover" />
+          <img src={overrideImage || image} alt={overrideTitle || title} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold text-sm">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold text-[10px] sm:text-sm">
             {(overrideTitle || title).charAt(0).toUpperCase()}
           </div>
         )}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 min-w-0">
-          <p className="font-medium text-sm truncate">{overrideTitle || title}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="font-bold text-[13px] sm:text-sm truncate">{overrideTitle || title}</p>
           {isDM && otherUserId && (
             <span
               className={`inline-block w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`}
@@ -255,7 +271,7 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
             />
           )}
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-400 hidden sm:block">
           {isDM && otherUserId
             ? (isOnline
               ? 'Online agora'
@@ -264,6 +280,22 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
                 : 'Offline'))
             : 'Mensagens seguras'}
         </p>
+      </div>
+
+      {/* Language Selector (Desktop Only) */}
+      <div className="hidden sm:flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100 flex-shrink-0">
+        <Globe2 size={13} className="text-gray-400" />
+        <select
+          value={preferredLanguage}
+          onChange={(e) => changeLanguage(e.target.value)}
+          className="bg-transparent text-[11px] font-medium text-gray-600 focus:outline-none cursor-pointer max-w-[120px] truncate"
+        >
+          {languages.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Botões de chamada (apenas para DMs) */}
@@ -286,15 +318,34 @@ export const ChatChannelHeader = ({ onChannelDeleted, onBack }) => {
         </button>
       </div>
       {menuOpen && (
-        <div className="absolute top-12 right-4 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+        <div className="absolute top-12 right-0 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-[100] overflow-hidden">
           <ul className="text-sm">
-            <li>
+            {/* Language Selection in Menu for Mobile */}
+            <li className="sm:hidden border-b border-gray-100">
+              <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Globe2 size={14} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Traduzir para</span>
+                </div>
+                <select
+                  value={preferredLanguage}
+                  onChange={(e) => changeLanguage(e.target.value)}
+                  className="bg-white border border-gray-200 rounded px-1 py-0.5 text-xs font-medium text-green-600 outline-none"
+                >
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>{lang.name}</option>
+                  ))}
+                </select>
+              </div>
+            </li>
+            <li className="p-1">
               <button
                 onClick={handleClearLocal}
-                className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors"
                 title="Remove o histórico só para ti"
               >
-                <RotateCcw size={14} className="text-gray-500" /> Limpar (só para mim)
+                <RotateCcw size={14} className="text-gray-500" /> 
+                <span>Limpar histórico (só eu)</span>
               </button>
             </li>
             {canGlobalTruncate && (

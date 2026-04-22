@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback, useContext, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { searchTalents, saveTalentSearch } from '../services/matching';
 import TalentCard from '../components/TalentCard';
@@ -13,31 +13,29 @@ const TalentsPage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [allTalents, setAllTalents] = useState([]);
   const [talents, setTalents] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [searchName, setSearchName] = useState('');
   const [activeTab, setActiveTab] = useState('talents'); // talents | jobs
-
+  const [allJobs, setAllJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [jobFilter, setJobFilter] = useState('all');
+  const [jobSearch, setJobSearch] = useState('');
+  const [skillInput, setSkillInput] = useState('');
   const [filters, setFilters] = useState({
     skills: [],
     experienceLevel: 'todos',
     location: 'todos'
   });
 
-  const [skillInput, setSkillInput] = useState('');
-  
-  // States para vagas
-  const [allJobs, setAllJobs] = useState([]);
-  const [loadingJobs, setLoadingJobs] = useState(true);
-  const [showCreateJob, setShowCreateJob] = useState(false);
-  const [jobFilter, setJobFilter] = useState('all');
-  const [jobSearch, setJobSearch] = useState('');
-
-  const loadTalents = async (appliedFilters = filters) => {
+  const loadTalents = async () => {
     setSearching(true);
     try {
-      const results = await searchTalents(appliedFilters, 1000);
+      // Carregamos uma lista maior para permitir filtro local instantâneo
+      const results = await searchTalents({}, 1000); 
+      setAllTalents(results);
       setTalents(results);
     } catch (error) {
       console.error('Erro ao buscar talentos:', error);
@@ -47,6 +45,30 @@ const TalentsPage = () => {
       setSearching(false);
     }
   };
+
+  // Filtro Local Otimizado para Talentos
+  const filteredTalents = useMemo(() => {
+    if (!searchName.trim() && filters.skills.length === 0 && filters.experienceLevel === 'todos' && filters.location === 'todos') {
+      return allTalents;
+    }
+
+    const term = searchName.toLowerCase();
+    return allTalents.filter(talent => {
+      const matchName = (talent.displayName || '').toLowerCase().includes(term) || 
+                       (talent.bio || '').toLowerCase().includes(term);
+      
+      const matchSkills = filters.skills.length === 0 || 
+                         filters.skills.every(s => (talent.skills || []).includes(s));
+                         
+      const matchExp = filters.experienceLevel === 'todos' || 
+                      talent.experienceLevel === filters.experienceLevel;
+                      
+      const matchLoc = filters.location === 'todos' || 
+                      talent.location === filters.location;
+
+      return matchName && matchSkills && matchExp && matchLoc;
+    });
+  }, [searchName, filters, allTalents]);
 
   useEffect(() => {
     if (user) {
@@ -131,24 +153,20 @@ const TalentsPage = () => {
     (filters.experienceLevel !== 'todos' ? 1 : 0) + 
     (filters.location !== 'todos' ? 1 : 0);
 
-  // Filtrar vagas
-  const getFilteredJobs = () => {
+  // Filtro Local Otimizado para Vagas
+  const filteredJobs = useMemo(() => {
     let filtered = allJobs;
 
-    // Mostrar apenas vagas da própria empresa
     if (user?.type === 'company') {
       filtered = filtered.filter(job => job.companyId === user.uid);
     }
 
-    // Filtro por status (não mostrar arquivadas)
     filtered = filtered.filter(job => job.status !== 'archived' && job.status !== 'paused');
 
-    // Filtro por tipo
     if (jobFilter !== 'all') {
       filtered = filtered.filter(job => job.type === jobFilter);
     }
 
-    // Filtro por busca
     if (jobSearch.trim()) {
       const searchLower = jobSearch.toLowerCase();
       filtered = filtered.filter(job =>
@@ -159,9 +177,7 @@ const TalentsPage = () => {
     }
 
     return filtered;
-  };
-
-  const filteredJobs = getFilteredJobs();
+  }, [allJobs, user?.uid, user?.type, jobFilter, jobSearch]);
 
   if (loading) {
     return (
@@ -219,7 +235,7 @@ const TalentsPage = () => {
               }`}
             >
               <Users className="w-4 h-4" />
-              Talentos ({talents.length})
+              Talentos ({filteredTalents.length})
             </button>
             <button
               onClick={() => setActiveTab('jobs')}
@@ -464,7 +480,7 @@ const TalentsPage = () => {
             <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-2" />
             <p className="text-gray-600">A pesquisar talentos...</p>
           </div>
-        ) : talents.length === 0 ? (
+        ) : filteredTalents.length === 0 ? (
           <div className="bg-white rounded-xl p-12 text-center">
             <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -484,12 +500,12 @@ const TalentsPage = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">
-                {talents.length} talento{talents.length !== 1 ? 's' : ''} encontrado{talents.length !== 1 ? 's' : ''}
+                {filteredTalents.length} talento{filteredTalents.length !== 1 ? 's' : ''} encontrado{filteredTalents.length !== 1 ? 's' : ''}
               </p>
             </div>
 
             <div className="grid gap-4">
-              {talents.map((talent) => (
+              {filteredTalents.map((talent) => (
                 <TalentCard key={talent.uid} talent={talent} />
               ))}
             </div>

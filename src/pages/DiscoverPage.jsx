@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback, useContext, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { findNearbyCandidates, findInterestedCompanies, findRecommendedJobs } from '../services/matching';
 import DiscoverCard from '../components/DiscoverCard';
@@ -53,7 +53,7 @@ const DiscoverPage = () => {
 
       let matchesResult;
       try {
-        const response = await getMatchesCall({ limit: 200 });
+        const response = await getMatchesCall({ limit: 500 }); // Aumentamos o limite para pesquisa local ser rica
         matchesResult = response.data;
       } catch (err) {
         console.warn('⚠️ Falha na Cloud Function, usando busca direta no Firestore como fallback:', err);
@@ -130,7 +130,7 @@ const DiscoverPage = () => {
     loadRecommendations(true);
   };
 
-  const getFilteredItems = () => {
+  const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
     switch (activeTab) {
@@ -138,32 +138,17 @@ const DiscoverPage = () => {
         // Mostra TODOS os candidatos na aba Jovens (sem filtro de score)
         let result = candidates.map(c => ({ ...c, type: 'candidate' }));
 
-        // Aplicar filtro de busca
         if (query) {
           result = result.filter(c =>
-            c.name?.toLowerCase().includes(query) ||
-            c.displayName?.toLowerCase().includes(query) ||
-            c.bio?.toLowerCase().includes(query) ||
-            c.location?.toLowerCase().includes(query) ||
+            (c.name || '').toLowerCase().includes(query) ||
+            (c.displayName || '').toLowerCase().includes(query) ||
+            (c.bio || '').toLowerCase().includes(query) ||
+            (c.location || '').toLowerCase().includes(query) ||
             (Array.isArray(c.skills) ? c.skills : []).some(skill =>
               skill.toLowerCase().includes(query)
             )
           );
         }
-
-        console.log('👥 Filtro Jovens:', {
-          totalCandidates: candidates.length,
-          resultCount: result.length,
-          searchQuery: query,
-          resultData: result.map(r => ({
-            name: r.name,
-            displayName: r.displayName,
-            uid: r.uid,
-            type: r.type,
-            matchScore: r.matchScore,
-            avatar: r.avatar
-          }))
-        });
 
         return result;
       }
@@ -205,10 +190,9 @@ const DiscoverPage = () => {
         ].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
       }
     }
-  };
+  }, [candidates, companies, jobs, searchQuery, activeTab]);
 
-  // Filtrar todas as vagas (aba Vagas)
-  const getFilteredJobs = () => {
+  const filteredJobs = useMemo(() => {
     let filtered = allJobs.filter(job => job.status !== 'archived' && job.status !== 'paused');
 
     // Filtro por tipo
@@ -228,10 +212,9 @@ const DiscoverPage = () => {
     }
 
     return filtered;
-  };
+  }, [allJobs, jobFilter, jobSearch]);
 
-  const filteredItems = getFilteredItems();
-  const filteredJobs = getFilteredJobs();
+
 
   if (loading) {
     return (
