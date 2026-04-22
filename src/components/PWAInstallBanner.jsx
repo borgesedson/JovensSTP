@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Download, X, Share, PlusSquare, ChevronUp, Smartphone, Rocket } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 /**
- * PWA Install Banner
- * - Android/Desktop: captures beforeinstallprompt and triggers native install
- * - iOS Safari: shows step-by-step instructions (Share → Add to Home Screen)
- * - Remembers dismissal for 7 days via localStorage
+ * PWA Install Banner — Persistent Version
+ * - Shows on every page navigation if not installed
+ * - If dismissed, re-appears after 30 seconds or on next page change
+ * - Semi-transparent backdrop to draw attention
+ * - Android/Desktop: captures beforeinstallprompt for native install
+ * - iOS Safari: shows step-by-step instructions
  */
 export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -14,25 +17,23 @@ export default function PWAInstallBanner() {
   const [showIOSSteps, setShowIOSSteps] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [dismissCount, setDismissCount] = useState(0);
+  const location = useLocation();
 
+  // Check if already installed
   useEffect(() => {
-    // Check if already installed as PWA
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       window.navigator.standalone === true;
 
     if (isStandalone) {
       setIsInstalled(true);
-      return;
     }
+  }, []);
 
-    // Check if user dismissed recently (7 days)
-    const dismissed = localStorage.getItem('pwa-install-dismissed');
-    if (dismissed) {
-      const dismissedAt = parseInt(dismissed, 10);
-      const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      if (Date.now() - dismissedAt < sevenDays) return;
-    }
+  // Detect platform and listen for install prompt
+  useEffect(() => {
+    if (isInstalled) return;
 
     // Detect iOS
     const isIOSDevice =
@@ -42,22 +43,15 @@ export default function PWAInstallBanner() {
 
     if (isIOSDevice && isSafari) {
       setIsIOS(true);
-      // Show after 3 seconds
-      const timer = setTimeout(() => setShowBanner(true), 3000);
-      return () => clearTimeout(timer);
     }
 
     // Android/Desktop: listen for beforeinstallprompt
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Show after 3 seconds
-      setTimeout(() => setShowBanner(true), 3000);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
-
-    // Listen for successful install
     window.addEventListener('appinstalled', () => {
       setIsInstalled(true);
       setShowBanner(false);
@@ -65,7 +59,30 @@ export default function PWAInstallBanner() {
     });
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, [isInstalled]);
+
+  // Show banner on every page navigation (persistent behavior)
+  useEffect(() => {
+    if (isInstalled) return;
+
+    // Small delay so it doesn't flash immediately on navigate
+    const timer = setTimeout(() => {
+      setShowBanner(true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [location.pathname, isInstalled]);
+
+  // Re-show banner 30 seconds after dismissal
+  useEffect(() => {
+    if (isInstalled || showBanner || dismissCount === 0) return;
+
+    const timer = setTimeout(() => {
+      setShowBanner(true);
+    }, 30000); // 30 seconds
+
+    return () => clearTimeout(timer);
+  }, [dismissCount, showBanner, isInstalled]);
 
   const handleInstall = useCallback(async () => {
     if (!deferredPrompt) return;
@@ -75,6 +92,7 @@ export default function PWAInstallBanner() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setShowBanner(false);
+        setIsInstalled(true);
       }
     } catch (err) {
       console.warn('Install prompt error:', err);
@@ -85,70 +103,84 @@ export default function PWAInstallBanner() {
 
   const handleDismiss = () => {
     setShowBanner(false);
-    localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+    setDismissCount(prev => prev + 1);
   };
 
   if (isInstalled || !showBanner) return null;
 
+  // After 3 dismissals, show a more urgent message
+  const isUrgent = dismissCount >= 3;
+
   // iOS Safari instructions
   if (isIOS) {
     return (
-      <div style={styles.overlay}>
-        <div style={styles.banner}>
-          {/* Close button */}
-          <button onClick={handleDismiss} style={styles.closeBtn} aria-label="Fechar">
-            <X size={18} />
-          </button>
-
-          {/* Header */}
-          <div style={styles.header}>
-            <div style={styles.iconCircle}>
-              <Rocket size={24} color="#fff" />
-            </div>
-            <div>
-              <h3 style={styles.title}>Instalar JovensSTP</h3>
-              <p style={styles.subtitle}>Acesso rápido como app no teu telemóvel</p>
-            </div>
-          </div>
-
-          {/* Steps */}
-          {!showIOSSteps ? (
-            <button onClick={() => setShowIOSSteps(true)} style={styles.installBtn}>
-              <Smartphone size={20} />
-              Ver Como Instalar
+      <div style={styles.backdrop}>
+        <div style={styles.overlay}>
+          <div style={{...styles.banner, ...(isUrgent ? styles.urgentBanner : {})}}>
+            {/* Close button */}
+            <button onClick={handleDismiss} style={styles.closeBtn} aria-label="Fechar">
+              <X size={18} />
             </button>
-          ) : (
-            <div style={styles.steps}>
-              <div style={styles.step}>
-                <div style={styles.stepNumber}>1</div>
-                <div style={styles.stepContent}>
-                  <Share size={18} color="#16a34a" style={{ marginRight: 8 }} />
-                  <span>Toque no botão <strong>Compartilhar</strong> <Share size={14} style={{ verticalAlign: 'middle'}} /> em baixo</span>
-                </div>
-              </div>
-              <div style={styles.step}>
-                <div style={styles.stepNumber}>2</div>
-                <div style={styles.stepContent}>
-                  <PlusSquare size={18} color="#16a34a" style={{ marginRight: 8 }} />
-                  <span>Escolha <strong>"Adicionar à Tela de Início"</strong></span>
-                </div>
-              </div>
-              <div style={styles.step}>
-                <div style={styles.stepNumber}>3</div>
-                <div style={styles.stepContent}>
-                  <Rocket size={18} color="#16a34a" style={{ marginRight: 8 }} />
-                  <span>Toque <strong>"Adicionar"</strong> e pronto!</span>
-                </div>
-              </div>
 
-              {/* Arrow pointing down for Safari */}
-              <div style={styles.arrowContainer}>
-                <ChevronUp size={24} color="#16a34a" style={{ transform: 'rotate(180deg)', animation: 'bounceDown 1s infinite' }} />
+            {/* Header */}
+            <div style={styles.header}>
+              <div style={styles.iconCircle}>
+                <Rocket size={24} color="#fff" />
+              </div>
+              <div>
+                <h3 style={styles.title}>
+                  {isUrgent ? '📲 Instala o App para Continuar!' : 'Instalar JovensSTP'}
+                </h3>
+                <p style={styles.subtitle}>
+                  {isUrgent
+                    ? 'A melhor experiência é com o app instalado'
+                    : 'Acesso rápido como app no teu telemóvel'}
+                </p>
               </div>
             </div>
-          )}
 
-          <p style={styles.benefit}>✨ Funciona offline • Notificações • Mais rápido</p>
+            {/* Steps */}
+            {!showIOSSteps ? (
+              <button onClick={() => setShowIOSSteps(true)} style={styles.installBtn}>
+                <Smartphone size={20} />
+                Ver Como Instalar
+              </button>
+            ) : (
+              <div style={styles.steps}>
+                <div style={styles.step}>
+                  <div style={styles.stepNumber}>1</div>
+                  <div style={styles.stepContent}>
+                    <Share size={18} color="#16a34a" style={{ marginRight: 8 }} />
+                    <span>Toque no botão <strong>Compartilhar</strong> em baixo</span>
+                  </div>
+                </div>
+                <div style={styles.step}>
+                  <div style={styles.stepNumber}>2</div>
+                  <div style={styles.stepContent}>
+                    <PlusSquare size={18} color="#16a34a" style={{ marginRight: 8 }} />
+                    <span>Escolha <strong>"Adicionar à Tela de Início"</strong></span>
+                  </div>
+                </div>
+                <div style={styles.step}>
+                  <div style={styles.stepNumber}>3</div>
+                  <div style={styles.stepContent}>
+                    <Rocket size={18} color="#16a34a" style={{ marginRight: 8 }} />
+                    <span>Toque <strong>"Adicionar"</strong> e pronto!</span>
+                  </div>
+                </div>
+
+                <div style={styles.arrowContainer}>
+                  <ChevronUp size={24} color="#16a34a" style={{ transform: 'rotate(180deg)', animation: 'bounceDown 1s infinite' }} />
+                </div>
+              </div>
+            )}
+
+            <p style={styles.benefit}>✨ Funciona offline • Notificações • Mais rápido</p>
+
+            <button onClick={handleDismiss} style={styles.laterBtn}>
+              {isUrgent ? 'Continuar sem instalar' : 'Talvez mais tarde'}
+            </button>
+          </div>
         </div>
 
         <style>{`
@@ -160,6 +192,14 @@ export default function PWAInstallBanner() {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
           }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.4); }
+            50% { box-shadow: 0 0 0 12px rgba(22,163,74,0); }
+          }
         `}</style>
       </div>
     );
@@ -167,56 +207,71 @@ export default function PWAInstallBanner() {
 
   // Android / Desktop banner
   return (
-    <div style={styles.overlay}>
-      <div style={styles.banner}>
-        {/* Close button */}
-        <button onClick={handleDismiss} style={styles.closeBtn} aria-label="Fechar">
-          <X size={18} />
-        </button>
+    <div style={styles.backdrop}>
+      <div style={styles.overlay}>
+        <div style={{...styles.banner, ...(isUrgent ? styles.urgentBanner : {})}}>
+          {/* Close button */}
+          <button onClick={handleDismiss} style={styles.closeBtn} aria-label="Fechar">
+            <X size={18} />
+          </button>
 
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.iconCircle}>
-            <Rocket size={24} color="#fff" />
+          {/* Header */}
+          <div style={styles.header}>
+            <div style={{...styles.iconCircle, ...(isUrgent ? { animation: 'pulse 2s infinite' } : {})}}>
+              <Rocket size={24} color="#fff" />
+            </div>
+            <div>
+              <h3 style={styles.title}>
+                {isUrgent ? '📲 Instala o App para Continuar!' : 'Instalar JovensSTP'}
+              </h3>
+              <p style={styles.subtitle}>
+                {isUrgent
+                  ? 'Tem a melhor experiência com o app instalado'
+                  : 'Acesso direto como app no teu dispositivo'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 style={styles.title}>Instalar JovensSTP</h3>
-            <p style={styles.subtitle}>Acesso direto como app no teu dispositivo</p>
+
+          {/* Benefits */}
+          <div style={styles.benefits}>
+            <div style={styles.benefitItem}>
+              <span style={styles.benefitIcon}>⚡</span>
+              <span style={styles.benefitText}>Mais rápido</span>
+            </div>
+            <div style={styles.benefitItem}>
+              <span style={styles.benefitIcon}>🔔</span>
+              <span style={styles.benefitText}>Notificações</span>
+            </div>
+            <div style={styles.benefitItem}>
+              <span style={styles.benefitIcon}>📱</span>
+              <span style={styles.benefitText}>Como app nativo</span>
+            </div>
           </div>
+
+          {/* Install button */}
+          <button
+            onClick={handleInstall}
+            disabled={installing}
+            style={{
+              ...styles.installBtn,
+              opacity: installing ? 0.7 : 1,
+              ...(isUrgent ? { animation: 'pulse 2s infinite' } : {}),
+            }}
+          >
+            <Download size={20} />
+            {installing ? 'Instalando...' : 'Instalar Agora — É Grátis!'}
+          </button>
+
+          <button onClick={handleDismiss} style={styles.laterBtn}>
+            {isUrgent ? 'Continuar sem instalar' : 'Talvez mais tarde'}
+          </button>
+
+          {dismissCount >= 1 && (
+            <p style={styles.reminderText}>
+              💡 Instalar leva apenas 2 segundos e melhora muito a tua experiência!
+            </p>
+          )}
         </div>
-
-        {/* Benefits */}
-        <div style={styles.benefits}>
-          <div style={styles.benefitItem}>
-            <span style={styles.benefitIcon}>⚡</span>
-            <span style={styles.benefitText}>Mais rápido</span>
-          </div>
-          <div style={styles.benefitItem}>
-            <span style={styles.benefitIcon}>🔔</span>
-            <span style={styles.benefitText}>Notificações</span>
-          </div>
-          <div style={styles.benefitItem}>
-            <span style={styles.benefitIcon}>📱</span>
-            <span style={styles.benefitText}>Como app nativo</span>
-          </div>
-        </div>
-
-        {/* Install button */}
-        <button
-          onClick={handleInstall}
-          disabled={installing}
-          style={{
-            ...styles.installBtn,
-            opacity: installing ? 0.7 : 1,
-          }}
-        >
-          <Download size={20} />
-          {installing ? 'Instalando...' : 'Instalar Agora — É Grátis!'}
-        </button>
-
-        <button onClick={handleDismiss} style={styles.laterBtn}>
-          Talvez mais tarde
-        </button>
       </div>
 
       <style>{`
@@ -224,33 +279,54 @@ export default function PWAInstallBanner() {
           from { transform: translateY(100%); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.4); }
+          50% { box-shadow: 0 0 0 12px rgba(22,163,74,0); }
+        }
       `}</style>
     </div>
   );
 }
 
 const styles = {
-  overlay: {
+  backdrop: {
     position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(4px)',
+    WebkitBackdropFilter: 'blur(4px)',
+    zIndex: 99999,
+    animation: 'fadeIn 0.3s ease',
+  },
+  overlay: {
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 99999,
     display: 'flex',
     justifyContent: 'center',
     padding: '0 16px 16px',
-    pointerEvents: 'none',
   },
   banner: {
-    pointerEvents: 'all',
     width: '100%',
     maxWidth: 420,
     background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
     borderRadius: 24,
     padding: '24px 20px 20px',
-    boxShadow: '0 -4px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(22,163,74,0.1)',
+    boxShadow: '0 -4px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(22,163,74,0.1)',
     position: 'relative',
     animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+  },
+  urgentBanner: {
+    border: '2px solid #16a34a',
+    boxShadow: '0 -4px 40px rgba(22,163,74,0.3), 0 0 0 1px rgba(22,163,74,0.2)',
   },
   closeBtn: {
     position: 'absolute',
@@ -351,6 +427,16 @@ const styles = {
     cursor: 'pointer',
     marginTop: 6,
     textAlign: 'center',
+  },
+  reminderText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#16a34a',
+    fontWeight: 600,
+    margin: '8px 0 0',
+    padding: '8px 12px',
+    background: 'rgba(22,163,74,0.06)',
+    borderRadius: 10,
   },
   steps: {
     display: 'flex',
